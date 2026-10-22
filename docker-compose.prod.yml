@@ -1,0 +1,80 @@
+name: mail-infrastructure
+
+services:
+  postfix:
+    container_name: postfix
+    build: ./containers/postfix
+    networks:
+      - dokploy-network
+    ports:
+      - "25:25"
+    environment:
+      EMAIL_HOSTNAME: ${EMAIL_HOSTNAME}
+      WEBSITE_DOMAIN: ${WEBSITE_DOMAIN}
+      EMAIL_RELAY_HOST: ${EMAIL_RELAY_HOST}
+      SMTP_RELAY_USERNAME: ${SMTP_RELAY_USERNAME}
+      SMTP_RELAY_PASSWORD: ${SMTP_RELAY_PASSWORD}
+      SMTP_SASL_AUTH_ENABLE: ${SMTP_SASL_AUTH_ENABLE}
+      SMTP_TLS_SECURITY_LEVEL: ${SMTP_TLS_SECURITY_LEVEL}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      SUBMISSION_USERNAME: ${SUBMISSION_USERNAME}
+      SUBMISSION_PASSWORD: ${SUBMISSION_PASSWORD}
+    volumes:
+      - postfix-log:/var/log/postfix
+      - postfix-spool:/var/spool/postfix
+    restart: always
+
+  postfix-exporter:
+    build: ./containers/postfix-exporter
+    command: ["--postfix.logfile_path=/var/log/postfix/maillog"]
+    volumes:
+      - postfix-log:/var/log/postfix:ro
+      - postfix-spool:/var/spool/postfix:ro
+    networks:
+      - monitoring
+    restart: always
+
+  prometheus:
+    image: prom/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=30d"
+    volumes:
+      - ./containers/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring
+    restart: always
+
+  grafana:
+    image: grafana/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    volumes:
+      - ./containers/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - dokploy-network
+      - monitoring
+    restart: always
+
+networks:
+  # Shared with the webserver and the project's Postgres elsewhere in the
+  # same Dokploy project. Created externally by Dokploy, not by this file.
+  dokploy-network:
+    external: true
+  # Postfix <-> exporter <-> Prometheus <-> Grafana, isolated from the rest
+  # of the project.
+  monitoring:
+    driver: bridge
+
+volumes:
+  postfix-log:
+  # Shared with postfix-exporter (read-only) so it can read the showq
+  # socket for queue-size/age metrics, in addition to the maillog volume.
+  postfix-spool:
+  prometheus-data:
+  grafana-data:

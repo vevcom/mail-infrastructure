@@ -1,0 +1,95 @@
+# See /usr/share/postfix/main.cf.dist for a commented, more complete version
+
+# The hostname of the machine
+myhostname = {{ .Env.EMAIL_HOSTNAME }}
+
+# Debian specific:  Specifying a file name will cause the first
+# line of that file to be used as the name.  The Debian default
+# is /etc/mailname.
+#myorigin = /etc/mailname
+# This is used for mail sendt from postfix
+myorigin = $myhostname
+
+smtpd_banner = $myhostname ESMTP $mail_name
+biff = no
+
+# appending .domain is the MUA's job.
+append_dot_mydomain = no
+
+readme_directory = no
+
+# See http://www.postfix.org/COMPATIBILITY_README.html -- default to 2 on
+# fresh installs.
+compatibility_level = 2
+
+# TLS parameters - opportunistic STARTTLS. This instance is the
+# authoritative MX for the domain (DNS points straight at it), so it offers
+# encryption on the public-facing side. The cert is self-signed (see
+# Dockerfile) and is never validated by connecting clients - "may" means
+# Postfix encrypts the hop when the other side supports STARTTLS, but never
+# requires or checks a CA-trusted chain.
+smtpd_tls_cert_file = /etc/postfix/tls.crt
+smtpd_tls_key_file = /etc/postfix/tls.key
+smtpd_tls_security_level = may
+smtpd_tls_auth_only = no
+
+#smtpd_helo_required = yes
+
+# SASL for the webserver's submission to this container (replaces trusting
+# it by network/CIDR - see README for why). The credential is a single
+# fixed user/pass pair generated at container startup (see Dockerfile),
+# not baked into the image or managed via a lookup table.
+smtpd_sasl_auth_enable = yes
+smtpd_sasl_type = cyrus
+smtpd_sasl_path = smtpd
+smtpd_sasl_security_options = noanonymous
+
+# Anti-open-relay: only mynetworks (now just loopback) or an authenticated
+# client may relay mail to a domain we don't own. This has no effect on
+# receiving mail FOR our own domain (mydestination) - anonymous internet
+# senders can still deliver to our aliases; this only blocks using us to
+# forward mail onward without a credential.
+smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
+
+# The domain of the mails
+mydomain = {{ .Env.WEBSITE_DOMAIN }}
+
+# Local/alias(5) lookups for addresses in mydestination (see below)
+alias_maps = pgsql:/etc/postfix/pgsql-aliases.cf
+alias_database = pgsql:/etc/postfix/pgsql-aliases.cf
+
+# This is the important pointer that makes mail get forwarded. The
+# webserver only ever sends mail (and manages this table directly in
+# Postgres) - it never receives any, so there's no case here for routing
+# matched addresses anywhere but out through the relay below.
+virtual_alias_maps = pgsql:/etc/postfix/pgsql-aliases.cf
+
+# All outbound mail (including whatever the webserver submits to this
+# container) goes out through the relay as a smarthost. SMTP2GO in
+# production; swapped for a local Mailpit container in docker-compose.test.yml
+# (see README) without touching this file.
+relayhost = {{ .Env.EMAIL_RELAY_HOST }}
+smtp_sasl_auth_enable = {{ .Env.SMTP_SASL_AUTH_ENABLE }}
+smtp_sasl_security_options = noanonymous
+smtp_sasl_password_maps = static:{{ .Env.SMTP_RELAY_USERNAME }}:{{ .Env.SMTP_RELAY_PASSWORD }}
+smtp_tls_security_level = {{ .Env.SMTP_TLS_SECURITY_LEVEL }}
+
+# Writes straight to a file instead of syslog, so postfix-exporter can tail
+# it without needing access to the Docker socket. Rotated by cron/logrotate
+# (see Dockerfile + logrotate.conf) - this file has no built-in rotation.
+maillog_file = /var/log/postfix/maillog
+
+# Default settings
+mailbox_size_limit = 0
+recipient_delimiter = +
+inet_interfaces = all
+inet_protocols = all
+
+# Domains that are not forwarded
+mydestination = $mydomain $myhostname localhost.$myhostname localhost
+
+# Loopback only - the webserver authenticates via SASL instead of being
+# trusted by network/CIDR (see smtpd_relay_restrictions above and the
+# README). Nothing else on the shared Dokploy network gets relay access
+# just by being on the same subnet.
+mynetworks = 127.0.0.0/8 [::ffff:127.0.0.0]/104 [::1]/128
