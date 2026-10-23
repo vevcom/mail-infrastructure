@@ -7,7 +7,8 @@ spam folders. Written for any `<domain>`; notes specific to the prod domain
 Placeholders:
 
 - `<domain>` - the mail domain (`WEBSITE_DOMAIN`): the test domain, or `omega.ntnu.no`.
-- `mail.<domain>` - the mail server's hostname (always this, see README).
+- `mail.<domain>` - the mail server's hostname: `EMAIL_HOSTNAME`, default `mail.<domain>`
+  (**omega.ntnu.no**: `sanctus.omega.ntnu.no`, see README "Naming").
 - `<server-ip>` - the server's public IPv4 address.
 - `<selector>` - `DKIM_SELECTOR` (default `mail`).
 

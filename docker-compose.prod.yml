@@ -12,8 +12,9 @@ services:
     ports:
       - "25:25"
     environment:
-      # The mail host is always mail.<WEBSITE_DOMAIN> (see entrypoint.sh).
       WEBSITE_DOMAIN: ${WEBSITE_DOMAIN}
+      # The mail host. Empty means mail.<WEBSITE_DOMAIN> (see entrypoint.sh).
+      EMAIL_HOSTNAME: ${EMAIL_HOSTNAME:-}
       DELIVERY_MODE: ${DELIVERY_MODE}
       DKIM_SELECTOR: ${DKIM_SELECTOR:-mail}
       EMAIL_RELAY_HOST: ${EMAIL_RELAY_HOST}

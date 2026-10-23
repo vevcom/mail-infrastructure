@@ -21,9 +21,11 @@ case "${DELIVERY_MODE:-}" in
         ;;
 esac
 
-# The mail host is always mail.<domain> - see DNS.md for the matching A/PTR
-# records. Exported so the templates below can use it.
-export EMAIL_HOSTNAME="mail.$WEBSITE_DOMAIN"
+# The mail host: EMAIL_HOSTNAME if set (the same name as the website's
+# EMAIL_HOSTNAME, e.g. sanctus.omega.ntnu.no), otherwise mail.<domain> - see
+# DNS.md for the matching A/PTR records. Exported so the templates below can
+# use it.
+export EMAIL_HOSTNAME="${EMAIL_HOSTNAME:-mail.$WEBSITE_DOMAIN}"
 
 # sasldb2 defaults to root:root 600 - smtpd runs as the postfix user, so it
 # needs read access. The realm (-u) must match myhostname, since that's

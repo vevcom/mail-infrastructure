@@ -1,7 +1,7 @@
 # See /usr/share/postfix/main.cf.dist for a commented, more complete version
 
-# The hostname of the machine - always mail.<WEBSITE_DOMAIN>, derived in
-# entrypoint.sh. Also the HELO name, so it should match the PTR (DNS.md).
+# The hostname of the machine - EMAIL_HOSTNAME, default mail.<WEBSITE_DOMAIN>
+# (see entrypoint.sh). Mail to @<this name> is ours too (mydestination). Also the HELO name, so it should match the PTR (DNS.md).
 myhostname = {{ .Env.EMAIL_HOSTNAME }}
 
 # Debian specific:  Specifying a file name will cause the first

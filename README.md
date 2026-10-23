@@ -16,8 +16,11 @@ the wrong one:
   needs no other `-f`.
 
 Naming: `WEBSITE_DOMAIN` is the mail domain (`<domain>`, e.g.
-`omega.ntnu.no`) and the mail host is always `mail.<domain>` - derived in
-`containers/postfix/entrypoint.sh`, not configured.
+`omega.ntnu.no`) and the mail host is `EMAIL_HOSTNAME` - the same value as
+the website's `EMAIL_HOSTNAME` (prod: `sanctus.omega.ntnu.no`), or
+`mail.<domain>` if unset (`containers/postfix/entrypoint.sh`). Postfix
+receives alias mail for both, and introduces itself as the mail host. The
+docs write the mail host as `mail.<domain>`.
 
 ## Delivery modes
 
@@ -183,9 +186,9 @@ self-signed (see TLS below) - the connection is still encrypted, and it
 never leaves the internal Docker network. projectNext doesn't read it yet:
 its transport (`src/lib/email/constants.ts`) needs to turn it into
 `tls: { rejectUnauthorized: false }`, or sending fails on the certificate.
-Also set the website's `EMAIL_HOSTNAME=mail.<domain>` - it's the second
-domain the website accepts for aliases and senders, and postfix only
-receives for and signs `<domain>` and `mail.<domain>`.
+The website's `EMAIL_HOSTNAME` must match postfix's (see "Naming") - it's
+the second domain the website accepts for aliases and senders, and postfix
+only receives for and signs `<domain>` and its own mail host.
 
 ## Test and prod domains
 

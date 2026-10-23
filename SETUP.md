@@ -53,6 +53,7 @@ Placeholders: `<domain>` is `WEBSITE_DOMAIN` (the test domain, or
    | Variable | Value |
    |---|---|
    | `WEBSITE_DOMAIN` | the test domain, later `omega.ntnu.no` |
+   | `EMAIL_HOSTNAME` | the website's `EMAIL_HOSTNAME` (prod: `sanctus.omega.ntnu.no`); empty = `mail.<domain>` |
    | `DELIVERY_MODE` | `relay` |
    | `EMAIL_RELAY_HOST` | `mailgw.ntnu.no` |
    | `SMTP_RELAY_USERNAME`, `SMTP_RELAY_PASSWORD` | empty (mailgw relays by source IP) |
@@ -109,13 +110,12 @@ To send through this postfix instead (needed in direct mode, section 8):
     EMAIL_USER=<SUBMISSION_USERNAME>
     EMAIL_PASSWORD=<SUBMISSION_PASSWORD>
     EMAIL_DOMAIN=<domain>
-    EMAIL_HOSTNAME=mail.<domain>
+    EMAIL_HOSTNAME=<the mail app's EMAIL_HOSTNAME>
     ```
     `EMAIL_HOSTNAME` is the second domain the website accepts for aliases
-    and senders. Postfix only receives for `<domain>` and `mail.<domain>`,
-    and only DKIM-signs those - so it must be `mail.<domain>`, not the old
-    `sanctus.omega.ntnu.no`. Aliases already made at the old hostname need
-    renaming.
+    and senders. Postfix only receives for and DKIM-signs `<domain>` and its
+    own mail host, so the two apps must agree - a project-level shared
+    variable keeps them in sync.
 
 ## 7. Verify
 
