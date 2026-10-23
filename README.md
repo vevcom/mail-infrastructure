@@ -2,7 +2,8 @@
 
 Postfix mail server for the website's mail aliases (`<something>@<domain>`
 → the members behind it), plus monitoring. Deployed as a Dokploy compose app
-alongside the website and its Postgres database.
+alongside the website and its Postgres database - step by step in
+[SETUP.md](SETUP.md).
 
 Two compose files, so a plain `docker compose up` can't accidentally run
 the wrong one:
@@ -88,6 +89,9 @@ ever reads them.
 ## Spinning it up in Dokploy
 
 ### Common steps (both modes)
+
+The full walkthrough - firewall, DNS, the Dokploy app, env, deploying,
+the website, verifying - is [SETUP.md](SETUP.md). In short:
 
 1. **Free port 25.** Only one thing per IP can listen on it - stop the old
    omegaweb postfix (or the other app, see below) first.
@@ -176,7 +180,12 @@ EMAIL_DOMAIN=<domain>
 
 `EMAIL_TLS_ALLOW_SELF_SIGNED` is needed because postfix's certificate is
 self-signed (see TLS below) - the connection is still encrypted, and it
-never leaves the internal Docker network.
+never leaves the internal Docker network. projectNext doesn't read it yet:
+its transport (`src/lib/email/constants.ts`) needs to turn it into
+`tls: { rejectUnauthorized: false }`, or sending fails on the certificate.
+Also set the website's `EMAIL_HOSTNAME=mail.<domain>` - it's the second
+domain the website accepts for aliases and senders, and postfix only
+receives for and signs `<domain>` and `mail.<domain>`.
 
 ## Test and prod domains
 

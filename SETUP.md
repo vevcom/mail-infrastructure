@@ -1,0 +1,166 @@
+# Setting it up in Dokploy
+
+Step by step, from nothing to working mail. Do it on the **test domain**
+first, in **relay mode** (the old omegaweb setup, least DNS work) - direct
+mode can come later (section 8). Background for each step is in
+[README.md](README.md) and [DNS.md](DNS.md).
+
+Placeholders: `<domain>` is `WEBSITE_DOMAIN` (the test domain, or
+`omega.ntnu.no`), `<server-ip>` the server's public IPv4 address.
+
+## 0. Before you start
+
+1. **The branch must be on the git remote.** Dokploy builds from git - push
+   the branch you want to deploy.
+2. **Optional: test locally** - the whole stack with a fake relay, nothing
+   leaves your machine (README, "Testing with Mailpit"):
+   ```sh
+   docker network create dokploy-network   # one-time, if it doesn't exist yet
+   docker compose -f docker-compose.test.yml --env-file .env.test up --build
+   ```
+3. **Ask NTNU IT** (can take days - start early):
+   - Inbound **25** must reach the server - the Cloudflare Tunnel in front
+     of the website only carries HTTP. For omega.ntnu.no in relay mode:
+     confirm that `mx.ntnu.no` hands the domain's mail to this server's IP
+     (DNS.md, "omega.ntnu.no - current values").
+   - Direct mode only (can wait until section 8): a **PTR** record for
+     `<server-ip>` → `mail.omega.ntnu.no`, and later inbound 25 from the
+     whole internet for the MX switch.
+
+## 1. DNS, before deploying
+
+4. Only needed if the MX will point at this server (the test domain, or
+   direct mode) - harmless to add early:
+   ```
+   mail.<domain>.    A    <server-ip>
+   ```
+   omega.ntnu.no in relay mode needs no new records.
+
+## 2. Create the app
+
+5. In the **website's project** (the same environment as the website),
+   **Create Service → Compose**.
+6. **Provider**: this repository, the branch from step 1. **Compose path**:
+   `docker-compose.prod.yml`.
+7. Don't add a Dokploy **Domain** for `postfix` - SMTP doesn't go through
+   Traefik. Leave "isolated deployment" off: the stack must be on
+   `dokploy-network` to reach the website and its database.
+
+## 3. Environment variables
+
+8. Paste `.env.example` into the app's **Environment** tab and fill it in:
+
+   | Variable | Value |
+   |---|---|
+   | `WEBSITE_DOMAIN` | the test domain, later `omega.ntnu.no` |
+   | `DELIVERY_MODE` | `relay` |
+   | `EMAIL_RELAY_HOST` | `mailgw.ntnu.no` |
+   | `SMTP_RELAY_USERNAME`, `SMTP_RELAY_PASSWORD` | empty (mailgw relays by source IP) |
+   | `SMTP_SASL_AUTH_ENABLE` | `no` |
+   | `SMTP_TLS_SECURITY_LEVEL` | `may` |
+   | `DKIM_SELECTOR` | `mail` (direct mode only) |
+   | `POSTGRES_HOST` | the website database's **Internal Host** (on the database's page in Dokploy) |
+   | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | the same as in the website's `DB_URI` |
+   | `SUBMISSION_USERNAME` | e.g. `website` |
+   | `SUBMISSION_PASSWORD`, `GRAFANA_ADMIN_PASSWORD` | each its own `openssl rand -base64 24` |
+
+   If the project already has the Postgres credentials as shared
+   (project-level) variables, reference those instead of copying them.
+
+## 4. Free port 25 and deploy
+
+9. **Stop whatever listens on port 25 now** - the old omegaweb postfix, or
+   the other domain's mail app. Only one can have it.
+10. **Deploy**.
+11. Check the **postfix** logs (the app → Logs): `daemon started`, no
+    `fatal:` lines. A Postgres error on the first lookup means `POSTGRES_*`
+    is wrong, or the host isn't on `dokploy-network`.
+
+## 5. The rest of the DNS records
+
+12. **MX**:
+    - omega.ntnu.no, relay mode: **leave it** at `mx.ntnu.no`.
+    - The test domain: `<domain>.    MX    10 mail.<domain>.`
+13. **DMARC** (recommended in relay mode, required in direct):
+    ```
+    _dmarc.<domain>.    TXT    "v=DMARC1; p=none; rua=mailto:dmarc@<domain>"
+    ```
+    and create `dmarc@<domain>` as a mail alias on the website, pointing at
+    whoever reads the reports.
+
+## 6. The website (optional in relay mode)
+
+In relay mode the website can keep sending through its current provider.
+To send through this postfix instead (needed in direct mode, section 8):
+
+14. **projectNext code change first.** The connection is STARTTLS to
+    postfix's **self-signed** certificate (README, "TLS"), and projectNext's
+    transport (`src/lib/email/constants.ts`) verifies certificates - it
+    sets `requireTLS` and no `tls` options, and doesn't read
+    `EMAIL_TLS_ALLOW_SELF_SIGNED`. Until it passes that through as
+    `tls: { rejectUnauthorized: false }`, sending fails with a certificate
+    error.
+15. Set in projectNext's environment and redeploy the website:
+    ```
+    EMAIL_SERVER=mail-postfix
+    EMAIL_PORT=25
+    EMAIL_SECURE=false
+    EMAIL_TLS_ALLOW_SELF_SIGNED=true
+    EMAIL_USER=<SUBMISSION_USERNAME>
+    EMAIL_PASSWORD=<SUBMISSION_PASSWORD>
+    EMAIL_DOMAIN=<domain>
+    EMAIL_HOSTNAME=mail.<domain>
+    ```
+    `EMAIL_HOSTNAME` is the second domain the website accepts for aliases
+    and senders. Postfix only receives for `<domain>` and `mail.<domain>`,
+    and only DKIM-signs those - so it must be `mail.<domain>`, not the old
+    `sanctus.omega.ntnu.no`. Aliases already made at the old hostname need
+    renaming.
+
+## 7. Verify
+
+16. **Unknown addresses**: from outside, mail to an alias that doesn't
+    exist is rejected at `RCPT TO`.
+17. **Forwarding**: make your Gmail address a member of an alias, and send
+    to the alias from a *different* account. It arrives, and the postfix
+    log shows `status=sent`.
+18. **Website mail** (if section 6 was done): trigger a notification to
+    yourself.
+19. **Grafana** (optional): give the `grafana` service a domain in Dokploy,
+    port 3000, login `admin` / `GRAFANA_ADMIN_PASSWORD`. The Postfix
+    dashboard shows the test messages.
+
+More checks: DNS.md, "Verifying".
+
+## 8. Direct mode (later, optional)
+
+Follow DNS.md, "Rollout order" - the short version:
+
+20. Check from the **server** that outbound port 25 is open:
+    `nc -vz -w 5 gmail-smtp-in.l.google.com 25`. If it times out, stay on
+    relay mode.
+21. Ahead of time: `A mail.<domain>`, the **PTR** (step 3), **SPF** with
+    `ip4:<server-ip>` added (DNS.md §4), **DMARC** (step 13), and lower the
+    MX record's TTL to 300.
+22. Set `DELIVERY_MODE=direct` (and `DKIM_SELECTOR`, default `mail`) and
+    redeploy.
+23. **DKIM**: the postfix log prints the record - publish it (DNS.md §5):
+    ```
+    mail._domainkey.<domain>.    TXT    "v=DKIM1; k=rsa; p=..."
+    ```
+    It's longer than 255 characters - split it into several quoted strings
+    if the DNS editor wants that. The key lives on the `dkim-keys` volume:
+    don't delete that volume.
+24. Switch the **MX** to `mail.<domain>` (omega.ntnu.no: after NTNU IT has
+    opened inbound port 25 from the internet).
+25. Verify with Gmail's *Show original* (SPF, DKIM and DMARC all `PASS`) and
+    [mail-tester.com](https://www.mail-tester.com) (aim for 9-10/10).
+26. Point the website at postfix (section 6) - in direct mode its mail must go
+    through here to be DKIM-signed. After 2-4 weeks of clean DMARC reports,
+    tighten DMARC to `p=quarantine`, later `p=reject`.
+
+## 9. Test → prod
+
+27. Stop the test app, then repeat steps 5-19 for `omega.ntnu.no`, in the
+    prod website's project. Both can't run at once on one server - they
+    need the same port 25 (README, "Test and prod domains").
