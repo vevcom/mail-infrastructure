@@ -1,0 +1,29 @@
+# PostSRSd (Sender Rewriting Scheme) - only started in DELIVERY_MODE=direct,
+# see entrypoint.sh. Forwarded alias mail from e.g. someone@gmail.com leaves
+# this server with an envelope sender of SRS0=...@<domain>, so the
+# recipient's SPF check is done against our domain (which lists our IP)
+# instead of gmail.com (which doesn't). The visible From: is untouched.
+
+# Our own senders (the website, bounces) are never rewritten.
+domains = { "{{ .Env.WEBSITE_DOMAIN }}", "{{ .Env.EMAIL_HOSTNAME }}" }
+srs-domain = "{{ .Env.WEBSITE_DOMAIN }}"
+
+# Postfix asks via socketmap (sender_canonical_maps/recipient_canonical_maps
+# in main.cf). Same container, so loopback only.
+socketmap = inet:127.0.0.1:10003
+keep-alive = 30
+
+# Stateless: the original sender is embedded in the rewritten address.
+original-envelope = embedded
+
+# Generated on first start by entrypoint.sh, on the postsrsd-data volume.
+secrets-file = "/etc/postsrsd/data/postsrsd.secret"
+
+separator = "="
+hash-length = 4
+hash-minimum = 4
+always-rewrite = off
+unprivileged-user = "postsrsd"
+chroot-dir = "/var/lib/postsrsd"
+syslog = off
+debug = off

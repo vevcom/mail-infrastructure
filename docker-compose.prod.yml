@@ -2,15 +2,20 @@ name: mail-infrastructure
 
 services:
   postfix:
-    container_name: postfix
     build: ./containers/postfix
     networks:
-      - dokploy-network
+      dokploy-network:
+        # Stable name for the website's EMAIL_SERVER in direct mode, instead
+        # of Dokploy's generated container name.
+        aliases:
+          - mail-postfix
     ports:
       - "25:25"
     environment:
-      EMAIL_HOSTNAME: ${EMAIL_HOSTNAME}
+      # The mail host is always mail.<WEBSITE_DOMAIN> (see entrypoint.sh).
       WEBSITE_DOMAIN: ${WEBSITE_DOMAIN}
+      DELIVERY_MODE: ${DELIVERY_MODE}
+      DKIM_SELECTOR: ${DKIM_SELECTOR:-mail}
       EMAIL_RELAY_HOST: ${EMAIL_RELAY_HOST}
       SMTP_RELAY_USERNAME: ${SMTP_RELAY_USERNAME}
       SMTP_RELAY_PASSWORD: ${SMTP_RELAY_PASSWORD}
@@ -25,6 +30,9 @@ services:
     volumes:
       - postfix-log:/var/log/postfix
       - postfix-spool:/var/spool/postfix
+      # DELIVERY_MODE=direct only - must survive redeploys (see entrypoint.sh).
+      - postsrsd-data:/etc/postsrsd/data
+      - dkim-keys:/etc/opendkim/keys
     restart: always
 
   postfix-exporter:
@@ -76,5 +84,9 @@ volumes:
   # Shared with postfix-exporter (read-only) so it can read the showq
   # socket for queue-size/age metrics, in addition to the maillog volume.
   postfix-spool:
+  # SRS secret - bounces to rewritten senders only verify while it's unchanged.
+  postsrsd-data:
+  # DKIM private keys, one directory per domain - the public halves are in DNS.
+  dkim-keys:
   prometheus-data:
   grafana-data:
