@@ -113,8 +113,7 @@ the website, verifying - is [SETUP.md](SETUP.md). In short:
 5. Do the DNS records for the chosen mode: [DNS.md](DNS.md).
 6. Optionally give Grafana a domain in Dokploy (it's the only HTTP service).
 
-The host must accept port 25 straight from the internet (or from NTNU's
-MX) - the Cloudflare Tunnel in front of the website only carries HTTP.
+The host must accept port 25 from whoever delivers the domain's mail In relay mode that's only NTNU's gateways (see "Security"); in direct mode, the whole internet.
 
 ### relay mode
 
@@ -135,6 +134,12 @@ The website can keep sending through its own provider, or send through this
 postfix with the same website settings as under direct mode below. Its mail
 then leaves via mailgw, which omega.ntnu.no's SPF already allows. It isn't
 DKIM-signed in this mode.
+
+Like direct mode, nobody but the website may send as `<domain>` or the mail
+host - otherwise anyone could send "from" `styret@<domain>` to an alias, and
+we'd forward it through mailgw, which `<domain>`'s SPF allows. There are no
+other inbound checks: NTNU's gateway filters spam and checks SPF before mail
+reaches us.
 
 ### direct mode
 
@@ -181,12 +186,13 @@ EMAIL_PASSWORD=<SUBMISSION_PASSWORD>
 EMAIL_DOMAIN=<domain>
 ```
 
+`EMAIL_SERVER` is the network alias from `docker-compose.prod.yml`, not the
+Dokploy app's name - that isn't a hostname (`getaddrinfo ENOTFOUND`).
 `EMAIL_TLS_ALLOW_SELF_SIGNED` is needed because postfix's certificate is
 self-signed (see TLS below) - the connection is still encrypted, and it
-never leaves the internal Docker network. projectNext doesn't read it yet:
-its transport (`src/lib/email/constants.ts`) needs to turn it into
-`tls: { rejectUnauthorized: false }`, or sending fails on the certificate.
-The website's `EMAIL_HOSTNAME` must match postfix's (see "Naming") - it's
+never leaves the internal Docker network; projectNext turns it into
+`tls: { rejectUnauthorized: false }` (vevcom/omegaweb-next#816). Without it,
+sending fails on the certificate. The website's `EMAIL_HOSTNAME` must match postfix's (see "Naming") - it's
 the second domain the website accepts for aliases and senders, and postfix
 only receives for and signs `<domain>` and its own mail host.
 
@@ -257,6 +263,36 @@ Dokploy's automatic TLS (Traefik + Let's Encrypt) only covers HTTP(S) apps
 behind it and never comes into play for Postfix's raw port-25 traffic -
 Grafana (a plain HTTP app) is the one service here that can use Dokploy's
 normal domain + TLS routing.
+
+Login (AUTH) is only offered after STARTTLS (`smtpd_tls_auth_only`), so the
+submission password never crosses the network in the clear.
+
+## Security
+
+- **Port 25 (relay mode): only NTNU's gateways.** omega.ntnu.no's MX is
+  `mx.ntnu.no`, so all legitimate mail reaches us through NTNU's gateways,
+  which filter spam and check SPF first. Anyone else connecting directly is
+  going around them. In the OpenStack security group, allow TCP 25 only from
+  `129.241.56.0/23` (confirm the gateways' addresses with NTNU IT). The
+  website reaches postfix over the Docker network, which the security group
+  doesn't affect. Direct mode needs 25 open to the internet instead.
+- **Nobody but the website may send as `<domain>` or the mail host** (both
+  modes, `smtpd_sender_restrictions` in `main.cf.tmpl`) - rejected with
+  `Not authenticated to send as this domain`. This also rejects NTNU users
+  who send through mailgw with an `@<domain>` address to an alias.
+- **The visible `From:`** isn't covered by that - only DMARC protects it:
+  move `_dmarc.<domain>` from `p=none` to `p=quarantine` once the reports
+  show all legitimate mail passing (DNS.md, DMARC).
+- **Inherent to NTNU's setup**: mailgw relays for all of NTNU's network, and
+  `<domain>`'s SPF allows mailgw - so anyone on NTNU's network can send as
+  `@<domain>` to the outside world with passing SPF. The old setup had the
+  same.
+- **`SUBMISSION_PASSWORD`**: a long random value (`openssl rand -base64 24`),
+  the same in the website's `EMAIL_PASSWORD` - a project-level shared
+  variable keeps the two in sync. With it, anyone who can reach port 25 can
+  send anything through mailgw.
+- Keep access to the OpenStack project (DNS zone, security groups) and to
+  Dokploy small.
 
 ## Monitoring
 

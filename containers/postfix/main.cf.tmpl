@@ -32,7 +32,9 @@ compatibility_level = 2
 smtpd_tls_cert_file = /etc/postfix/tls.crt
 smtpd_tls_key_file = /etc/postfix/tls.key
 smtpd_tls_security_level = may
-smtpd_tls_auth_only = no
+# Only offer AUTH after STARTTLS, so the submission password is never sent
+# in the clear. The website always does STARTTLS first (requireTLS).
+smtpd_tls_auth_only = yes
 
 # SASL for the webserver's submission to this container (replaces trusting
 # it by network/CIDR - see README for why). The credential is a single
@@ -107,7 +109,7 @@ smtpd_helo_restrictions =
 smtpd_sender_restrictions =
     permit_mynetworks,
     permit_sasl_authenticated,
-    check_sender_access inline:{ { {{ .Env.WEBSITE_DOMAIN }} = REJECT Not authenticated to send as this domain } },
+    check_sender_access inline:{ { {{ .Env.WEBSITE_DOMAIN }} = REJECT Not authenticated to send as this domain }, { {{ .Env.EMAIL_HOSTNAME }} = REJECT Not authenticated to send as this domain } },
     reject_non_fqdn_sender,
     reject_unknown_sender_domain
 # Spamhaus ZEN blocklist. The reply-code filter matters: when queried
@@ -132,7 +134,18 @@ smtp_sasl_auth_enable = {{ .Env.SMTP_SASL_AUTH_ENABLE }}
 smtp_sasl_security_options = noanonymous
 smtp_sasl_password_maps = static:{{ .Env.SMTP_RELAY_USERNAME }}:{{ .Env.SMTP_RELAY_PASSWORD }}
 smtp_tls_security_level = {{ .Env.SMTP_TLS_SECURITY_LEVEL }}
-inet_protocols = all
+# Docker's bridge network has no IPv6 route - without this, every delivery
+# first fails on the relay's IPv6 address ("Network unreachable").
+inet_protocols = ipv4
+
+# Nobody but the website may send as our own domain - otherwise anyone could
+# send "from" styret@<domain> to an alias, and we'd forward it through the
+# relay, which <domain>'s SPF allows. Also covers spoofs that reach us
+# through NTNU's gateway from inside NTNU.
+smtpd_sender_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    check_sender_access inline:{ { {{ .Env.WEBSITE_DOMAIN }} = REJECT Not authenticated to send as this domain }, { {{ .Env.EMAIL_HOSTNAME }} = REJECT Not authenticated to send as this domain } }
 {{ end }}
 
 # Writes straight to a file instead of syslog, so postfix-exporter can tail
@@ -142,6 +155,9 @@ maillog_file = /var/log/postfix/maillog
 
 # Default settings
 mailbox_size_limit = 0
+# 50 MB, the same as NTNU's gateways (mx.ntnu.no, mailgw.ntnu.no) - the
+# default is 10 MB.
+message_size_limit = 52428800
 recipient_delimiter = +
 inet_interfaces = all
 

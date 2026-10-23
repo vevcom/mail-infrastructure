@@ -14,13 +14,14 @@ Placeholders:
 
 Where records are edited:
 
-- **omega.ntnu.no** is its own DNS zone, edited at
-  [dnsadmin.itea.ntnu.no](https://dnsadmin.itea.ntnu.no) (access granted by NTNU
-  IT; the zone's contact address is vevcom@omega.ntnu.no).
-- The test domain: wherever its DNS is hosted (registrar / DNS provider).
-- **PTR** (reverse DNS) is not part of either zone - it belongs to whoever
-  owns the IP address: NTNU IT for NTNU addresses (129.241.x.x), otherwise the
-  hosting provider.
+- **omega.ntnu.no** and the test domain (sctomega.no) are zones in NTNU's
+  OpenStack (name servers `ns1/ns2.stack.it.ntnu.no`): the OpenStack
+  dashboard → Project → DNS → Zones.
+- **PTR** (reverse DNS) for the server's floating IP: the same dashboard →
+  DNS → Reverse DNS.
+- Long TXT values (DKIM) must be split into quoted pieces of at most 255
+  characters, on **one** line: `"v=DKIM1; k=rsa; p=MIIB...first" "...rest"`.
+  Separate lines would be separate records, and break DKIM.
 
 ## How receivers decide what's spam
 
@@ -72,23 +73,36 @@ job - see the table below.
 | TLS-RPT | Optional | Optional |
 | MTA-STS | Not now (see below) | Not now (see below) |
 
-### omega.ntnu.no - current values (checked 2026-10-22)
+### omega.ntnu.no - current values (checked 2026-10-23)
 
 ```
-omega.ntnu.no.          MX   10 mx.ntnu.no.
-omega.ntnu.no.          TXT  "v=spf1 redirect=_spfmailgw.ntnu.no"
-omega.ntnu.no.          A    129.241.100.34          (the current server)
-mail.omega.ntnu.no.     -    does not exist yet
-_dmarc.omega.ntnu.no.   -    none (so ntnu.no's p=none policy applies)
-DNSSEC                  -    not signed (ntnu.no isn't either)
+omega.ntnu.no.            MX   10 mx.ntnu.no.
+omega.ntnu.no.            TXT  "v=spf1 redirect=_spfmailgw.ntnu.no"
+omega.ntnu.no.            A    129.241.100.27     (the server)
+sanctus.omega.ntnu.no.    A    129.241.100.27     (the mail host, EMAIL_HOSTNAME)
+_dmarc.omega.ntnu.no.     TXT  "v=DMARC1; p=none; rua=mailto:dmarc@omega.ntnu.no"
+129.241.100.27            PTR  mail.sctomega.no.  (should become sanctus.omega.ntnu.no)
+DNSSEC                    -    not signed (ntnu.no isn't either)
 ```
 
-So today mail for omega.ntnu.no is received by NTNU's own mail gateway
-(`mx.ntnu.no`), not by our server directly. Port 25 on the current server
-isn't reachable from outside, so NTNU's gateway evidently hands omega.ntnu.no
-mail on to it internally. That routing is an NTNU IT setting, not a DNS
-record - **confirm with NTNU IT** how it's set up, and tell them when the
-server or its IP changes.
+Mail for omega.ntnu.no is received by NTNU's own mail gateways
+(`mx.ntnu.no`), which filter spam and check SPF, then hand it to the mail
+host **by name** - `sanctus.omega.ntnu.no`, so wherever its A record points.
+Moving that record moves the mail (the old server was 129.241.100.34). The
+gateways deliver from `129.241.56.0/23` (e.g. `mx101` 129.241.56.150,
+`mailgw201` 129.241.56.178).
+
+Two things about NTNU's gateways:
+
+- **They check the recipient with us before accepting** (Postfix address
+  verification), and remember the answer: a "doesn't exist" for roughly 3
+  hours (Postfix's default), per gateway machine. So an alias that was
+  missing - or had no members, even briefly while editing it - keeps
+  bouncing for a few hours after it's fixed, without the gateway asking us
+  again. Add new members before removing old ones; NTNU IT can clear the
+  cache for an address.
+- **In relay mode they're the only ones who need to reach port 25** - see
+  README, "Security".
 
 ## The records
 

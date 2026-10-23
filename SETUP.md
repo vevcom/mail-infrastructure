@@ -20,9 +20,11 @@ Placeholders: `<domain>` is `WEBSITE_DOMAIN` (the test domain, or
    ```
 3. **Ask NTNU IT** (can take days - start early):
    - Inbound **25** must reach the server - the Cloudflare Tunnel in front
-     of the website only carries HTTP. For omega.ntnu.no in relay mode:
-     confirm that `mx.ntnu.no` hands the domain's mail to this server's IP
-     (DNS.md, "omega.ntnu.no - current values").
+     of the website only carries HTTP. In the OpenStack security group:
+     relay mode, TCP 25 **only from NTNU's gateways** (`129.241.56.0/23` -
+     README, "Security"); direct mode or a test domain whose MX points
+     here, from `0.0.0.0/0`. Check that outbound traffic is allowed too
+     (the default `Egress ... 0.0.0.0/0` rules).
    - Direct mode only (can wait until section 8): a **PTR** record for
      `<server-ip>` → `mail.omega.ntnu.no`, and later inbound 25 from the
      whole internet for the MX switch.
@@ -34,7 +36,10 @@ Placeholders: `<domain>` is `WEBSITE_DOMAIN` (the test domain, or
    ```
    mail.<domain>.    A    <server-ip>
    ```
-   omega.ntnu.no in relay mode needs no new records.
+   omega.ntnu.no in relay mode: NTNU's gateways deliver to the mail host by
+   name, so `sanctus.omega.ntnu.no.  A  <server-ip>` is what moves the mail
+   to this server (DNS.md, "omega.ntnu.no - current values"). Change it only
+   when this app is deployed and ready.
 
 ## 2. Create the app
 
@@ -94,13 +99,10 @@ Placeholders: `<domain>` is `WEBSITE_DOMAIN` (the test domain, or
 In relay mode the website can keep sending through its current provider.
 To send through this postfix instead (needed in direct mode, section 8):
 
-14. **projectNext code change first.** The connection is STARTTLS to
-    postfix's **self-signed** certificate (README, "TLS"), and projectNext's
-    transport (`src/lib/email/constants.ts`) verifies certificates - it
-    sets `requireTLS` and no `tls` options, and doesn't read
-    `EMAIL_TLS_ALLOW_SELF_SIGNED`. Until it passes that through as
-    `tls: { rejectUnauthorized: false }`, sending fails with a certificate
-    error.
+14. The connection is STARTTLS to postfix's **self-signed** certificate
+    (README, "TLS"), so projectNext needs `EMAIL_TLS_ALLOW_SELF_SIGNED=true`
+    (supported since vevcom/omegaweb-next#816) - without it, sending fails
+    with a certificate error.
 15. Set in projectNext's environment and redeploy the website:
     ```
     EMAIL_SERVER=mail-postfix
@@ -112,18 +114,23 @@ To send through this postfix instead (needed in direct mode, section 8):
     EMAIL_DOMAIN=<domain>
     EMAIL_HOSTNAME=<the mail app's EMAIL_HOSTNAME>
     ```
-    `EMAIL_HOSTNAME` is the second domain the website accepts for aliases
-    and senders. Postfix only receives for and DKIM-signs `<domain>` and its
-    own mail host, so the two apps must agree - a project-level shared
-    variable keeps them in sync.
+    `EMAIL_SERVER` is postfix's network alias - not the Dokploy app's name,
+    which isn't a hostname (`getaddrinfo ENOTFOUND`). `EMAIL_HOSTNAME` is
+    the second domain the website accepts for aliases and senders. Postfix
+    only receives for and DKIM-signs `<domain>` and its own mail host, so
+    the two apps must agree - like `EMAIL_PASSWORD`/`SUBMISSION_PASSWORD`, a
+    project-level shared variable keeps them in sync.
 
 ## 7. Verify
 
-16. **Unknown addresses**: from outside, mail to an alias that doesn't
-    exist is rejected at `RCPT TO`.
+16. **Unknown addresses**: mail to an alias that doesn't exist bounces
+    straight back to the sender (`550 5.1.1 ... User unknown`). NTNU's
+    gateways remember that answer for a few hours, so create aliases before
+    testing them (DNS.md, "omega.ntnu.no - current values").
 17. **Forwarding**: make your Gmail address a member of an alias, and send
-    to the alias from a *different* account. It arrives, and the postfix
-    log shows `status=sent`.
+    to the alias from a *different* account - Gmail hides mail that comes
+    back to the account that sent it. It arrives, and the postfix log shows
+    `nrcpt=<number of members>` and a `status=sent` line per member.
 18. **Website mail** (if section 6 was done): trigger a notification to
     yourself.
 19. **Grafana** (optional): give the `grafana` service a domain in Dokploy,
