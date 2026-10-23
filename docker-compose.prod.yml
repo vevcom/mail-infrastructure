@@ -35,39 +35,39 @@ services:
       - dkim-keys:/etc/opendkim/keys
     restart: always
 
-  postfix-exporter:
-    build: ./containers/postfix-exporter
-    command: ["--postfix.logfile_path=/var/log/postfix/maillog"]
-    volumes:
-      - postfix-log:/var/log/postfix:ro
-      - postfix-spool:/var/spool/postfix:ro
-    networks:
-      - monitoring
-    restart: always
+  # postfix-exporter:
+  #   build: ./containers/postfix-exporter
+  #   command: ["--postfix.logfile_path=/var/log/postfix/maillog"]
+  #   volumes:
+  #     - postfix-log:/var/log/postfix:ro
+  #     - postfix-spool:/var/spool/postfix:ro
+  #   networks:
+  #     - monitoring
+  #   restart: always
 
-  prometheus:
-    image: prom/prometheus
-    command:
-      - "--config.file=/etc/prometheus/prometheus.yml"
-      - "--storage.tsdb.retention.time=30d"
-    volumes:
-      - ./containers/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-    networks:
-      - monitoring
-    restart: always
+  # prometheus:
+  #   image: prom/prometheus
+  #   command:
+  #     - "--config.file=/etc/prometheus/prometheus.yml"
+  #     - "--storage.tsdb.retention.time=30d"
+  #   volumes:
+  #     - ./containers/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+  #     - prometheus-data:/prometheus
+  #   networks:
+  #     - monitoring
+  #   restart: always
 
-  grafana:
-    image: grafana/grafana
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
-    volumes:
-      - ./containers/grafana/provisioning:/etc/grafana/provisioning:ro
-      - grafana-data:/var/lib/grafana
-    networks:
-      - dokploy-network
-      - monitoring
-    restart: always
+  # grafana:
+  #   image: grafana/grafana
+  #   environment:
+  #     GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+  #   volumes:
+  #     - ./containers/grafana/provisioning:/etc/grafana/provisioning:ro
+  #     - grafana-data:/var/lib/grafana
+  #   networks:
+  #     - dokploy-network
+  #     - monitoring
+  #   restart: always
 
 networks:
   # Shared with the webserver and the project's Postgres elsewhere in the
