@@ -215,9 +215,10 @@ one host - see [DNS.md](DNS.md).
 ## The alias query
 
 `containers/postfix/pgsql-aliases.cf.tmpl` has `hosts`/`user`/`password`/`dbname`
-wired up to the `POSTGRES_*` env vars, and `query` ported directly from
-`projectNext/containers/postfix/pgsql-aliases.cf.tmpl` (same schema - keep
-the two identical). Given a `MailAlias.address`, it resolves to the union
+wired up to the `POSTGRES_*` env vars, and `query` ported from omegaweb-next's
+former `containers/postfix`, which is gone, so this is the only copy. A change
+to these tables in omegaweb-next must be mirrored here. Given a
+`MailAlias.address`, it resolves to the union
 of everything attached to that alias's `MailingList`:
 
 - external addresses (`MailAddressExternal` via `MailingListMailAddressExternal`)
