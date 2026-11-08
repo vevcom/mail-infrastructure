@@ -24,9 +24,12 @@ production.
 
 ## How it is consumed
 
-**Production.** Publishing a GitHub release of this repo opens a pull request on vivat that points
-its `Application`s for this repo at the release, exactly as a release of omegaweb-next does. Merging
-that pull request is the deploy.
+**Production.** Publishing a GitHub release of this repo runs `.github/workflows/release.yml`: it
+builds the images of the services that have one, pushes them to GHCR under the release tag, and
+opens a pull request on vivat that points its `Application`s for this repo at the release, exactly
+as a release of omegaweb-next does. Merging that pull request is the deploy. The pull request is
+opened with the same GitHub App as omegaweb-next's, so this repo needs the variable `DEPLOY_APP_ID`
+and the secret `DEPLOY_APP_PRIVATE_KEY` too.
 
 **Development.** An application repo adds this repo as a git submodule and includes a service's
 `dev/compose.yaml` in its own compose file:
