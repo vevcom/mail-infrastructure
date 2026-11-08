@@ -2,7 +2,9 @@
 # as its relay so no mail leaves the machine. An application's compose file includes this file,
 # see the README at the root of the repo. On its own, from this directory:
 #
-#     docker compose --profile mail up --wait
+#     docker compose --profile mail up -d
+#
+# Not with --wait: Compose 2.24 counts the one-shots below as failures once they have exited.
 #
 # Everything is under the `mail` profile, so nothing here starts unless asked for. See README.md
 # for the addresses, the credentials and how the application connects.
