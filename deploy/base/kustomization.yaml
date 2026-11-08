@@ -1,0 +1,36 @@
+# Stalwart and the Bulwark webmail, in the shape of one installation: nothing here names a domain,
+# a certificate or a password. An overlay includes this directory and fills those in, see README.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+labels:
+    - pairs:
+          app.kubernetes.io/part-of: mail
+
+resources:
+    - stalwart.yaml
+    - bulwark.yaml
+    - ingress.yaml
+    - provision-job.yaml
+    - reload-certificates.yaml
+
+configMapGenerator:
+    # Where the data is. With the file present Stalwart skips its setup wizard. The dev half
+    # mounts the same file.
+    - name: stalwart-config
+      files:
+          - config.json
+    # The plans the provision job applies, in name order. The overlay merges its own in as
+    # 20-site.ndjson: the domain, the hostname, the certificate, the relay and the reload.
+    - name: stalwart-plan
+      files:
+          - 10-base.ndjson=plan.ndjson
+    # How the cli containers reach the management api, with the password from mail-env.
+    - name: stalwart-cli
+      literals:
+          - STALWART_URL=http://stalwart:8080
+          - STALWART_USER=admin
+    # The address browsers reach Stalwart's JMAP api at, which the overlay sets.
+    - name: bulwark-config
+      literals:
+          - JMAP_SERVER_URL=https://stalwart.placeholder.invalid

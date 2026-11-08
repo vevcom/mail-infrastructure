@@ -1,0 +1,2 @@
+{"@type":"reconcile","object":"Tracer","matchOn":["@type"],"value":{"stdout":{"@type":"Stdout","enable":true,"level":"info","ansi":false,"multiline":false,"lossy":false,"buffered":false}}}
+{"@type":"update","object":"Http","value":{"usePermissiveCors":true,"clientIpSource":"xForwardedFor","forwardedHops":1}}

@@ -1,0 +1,130 @@
+# One Stalwart with its data on a volume. The admin credential comes from the mail-env secret,
+# which the overlay provides, as STALWART_ADMIN_PASSWORD. Stalwart reads it as the recovery admin,
+# which is a full administrator for as long as the variable is set.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: stalwart
+spec:
+    serviceName: stalwart
+    replicas: 1
+    selector:
+        matchLabels:
+            app.kubernetes.io/name: stalwart
+    template:
+        metadata:
+            labels:
+                app.kubernetes.io/name: stalwart
+        spec:
+            volumes:
+                - name: config
+                  configMap:
+                      name: stalwart-config
+                # The certificate for the mail ports, when the overlay has one issued, see README.md.
+                - name: tls
+                  secret:
+                      secretName: stalwart-tls
+                      optional: true
+            containers:
+                - name: stalwart
+                  image: stalwartlabs/stalwart:v1.0.3
+                  env:
+                      - name: STALWART_ADMIN_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: mail-env
+                                key: STALWART_ADMIN_PASSWORD
+                      - name: STALWART_RECOVERY_ADMIN
+                        value: admin:$(STALWART_ADMIN_PASSWORD)
+                  ports:
+                      - name: smtp
+                        containerPort: 25
+                      - name: submissions
+                        containerPort: 465
+                      - name: imaps
+                        containerPort: 993
+                      - name: http
+                        containerPort: 8080
+                  volumeMounts:
+                      - name: config
+                        mountPath: /etc/stalwart/config.json
+                        subPath: config.json
+                        readOnly: true
+                      - name: tls
+                        mountPath: /etc/stalwart/tls
+                        readOnly: true
+                      - name: data
+                        mountPath: /var/lib/stalwart
+                  startupProbe:
+                      httpGet:
+                          path: /healthz/ready
+                          port: http
+                      periodSeconds: 5
+                      failureThreshold: 24
+                  readinessProbe:
+                      httpGet:
+                          path: /healthz/ready
+                          port: http
+                      periodSeconds: 10
+                  livenessProbe:
+                      httpGet:
+                          path: /healthz/live
+                          port: http
+                      periodSeconds: 20
+                      failureThreshold: 3
+                  resources:
+                      requests:
+                          cpu: 100m
+                          memory: 256Mi
+                      limits:
+                          memory: 1Gi
+    volumeClaimTemplates:
+        - metadata:
+              name: data
+          spec:
+              accessModes: [ReadWriteOnce]
+              resources:
+                  requests:
+                      storage: 10Gi
+---
+# Inside the cluster: the management api and the webmail's JMAP go through here, and an
+# application submits its mail on 465.
+apiVersion: v1
+kind: Service
+metadata:
+    name: stalwart
+spec:
+    selector:
+        app.kubernetes.io/name: stalwart
+    ports:
+        - name: http
+          port: 8080
+          targetPort: http
+        - name: submissions
+          port: 465
+          targetPort: submissions
+        - name: imaps
+          port: 993
+          targetPort: imaps
+---
+# The mail ports on the node's address. Local keeps the senders' addresses, which the
+# rate limits and the logs go by.
+apiVersion: v1
+kind: Service
+metadata:
+    name: stalwart-public
+spec:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    selector:
+        app.kubernetes.io/name: stalwart
+    ports:
+        - name: smtp
+          port: 25
+          targetPort: smtp
+        - name: submissions
+          port: 465
+          targetPort: submissions
+        - name: imaps
+          port: 993
+          targetPort: imaps

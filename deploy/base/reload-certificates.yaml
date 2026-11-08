@@ -1,0 +1,30 @@
+# A certificate read from files is only read again on request, so the renewed one cert-manager
+# writes is picked up here, weekly. Without a certificate from files this does nothing.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+    name: stalwart-reload-certificates
+spec:
+    schedule: "0 4 * * 1"
+    concurrencyPolicy: Forbid
+    successfulJobsHistoryLimit: 1
+    failedJobsHistoryLimit: 1
+    jobTemplate:
+        spec:
+            backoffLimit: 2
+            template:
+                spec:
+                    restartPolicy: Never
+                    containers:
+                        - name: reload
+                          image: stalwartlabs/cli:1.0.14
+                          args: [create, Action/ReloadTlsCertificates, --json, "{}"]
+                          envFrom:
+                              - configMapRef:
+                                    name: stalwart-cli
+                          env:
+                              - name: STALWART_PASSWORD
+                                valueFrom:
+                                    secretKeyRef:
+                                        name: mail-env
+                                        key: STALWART_ADMIN_PASSWORD
