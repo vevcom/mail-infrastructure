@@ -3,7 +3,7 @@
 Stalwart, the mail server production is moving to, with [Mailpit](https://mailpit.axllent.org/) as
 its relay: every mail for a domain the server does not host ends up in Mailpit's inbox instead of
 leaving the machine. Stalwart is set up from `plan.ndjson` on every start, so the whole state is in
-this directory, and `docker compose --profile mail down -v` resets it.
+this directory, and `docker compose down -v` resets it.
 
 | | Address | Credentials |
 |---|---|---|
@@ -39,8 +39,8 @@ line does not remove the object from a running server, so after that, reset with
 The `stalwart-provision` service is the CLI, so any other command runs through it:
 
 ```bash
-docker compose --profile mail run --rm stalwart-provision describe Domain
-docker compose --profile mail run --rm stalwart-provision query Account
+docker compose run --rm stalwart-provision describe Domain
+docker compose run --rm stalwart-provision query Account
 ```
 
 ## The domain

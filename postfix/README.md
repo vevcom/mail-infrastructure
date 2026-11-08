@@ -9,7 +9,7 @@ Two compose files, so a plain `docker compose up` can't accidentally run
 the wrong one:
 
 - `docker-compose.prod.yml` - the real stack. Point Dokploy's compose file
-  path at this one, `services/mail/postfix/docker-compose.prod.yml`.
+  path at this one, `postfix/docker-compose.prod.yml`.
 - `docker-compose.test.yml` - `include:`s `docker-compose.prod.yml`
   wholesale and overrides just the relay (see "Testing with Mailpit"
   below). Self-contained - `docker compose -f docker-compose.test.yml up`

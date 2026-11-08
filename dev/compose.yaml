@@ -2,17 +2,14 @@
 # as its relay so no mail leaves the machine. An application's compose file includes this file,
 # see the README at the root of the repo. On its own, from this directory:
 #
-#     docker compose --profile mail up -d
+#     docker compose up -d
 #
 # Not with --wait: Compose 2.24 counts the one-shots below as failures once they have exited.
-#
-# Everything is under the `mail` profile, so nothing here starts unless asked for. See README.md
-# for the addresses, the credentials and how the application connects.
+# See README.md for the addresses, the credentials and how the application connects.
 
 services:
     stalwart:
         image: stalwartlabs/stalwart:v1.0.3
-        profiles: [mail]
         init: true
         environment:
             # The credential the plan is applied with. Stalwart accepts it in every mode for as
@@ -31,7 +28,6 @@ services:
     # converges, so a changed plan is applied by the next `up`.
     stalwart-provision:
         image: stalwartlabs/cli:1.0.14
-        profiles: [mail]
         depends_on:
             stalwart:
                 condition: service_healthy
@@ -47,7 +43,6 @@ services:
     # second one-shot rather than a second command in the first.
     stalwart-reload:
         image: stalwartlabs/cli:1.0.14
-        profiles: [mail]
         depends_on:
             stalwart-provision:
                 condition: service_completed_successfully
@@ -59,7 +54,6 @@ services:
 
     mailpit:
         image: axllent/mailpit:v1.33.1
-        profiles: [mail]
         ports:
             - "127.0.0.1:8025:8025"
 

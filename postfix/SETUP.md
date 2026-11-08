@@ -45,7 +45,7 @@ Placeholders: `<domain>` is `WEBSITE_DOMAIN` (the test domain, or
 
 5. In the **website's project** (the same environment as the website),
    **Create Service → Compose**.
-6. **Provider**: this repository, the branch from step 1. **Compose path**: `services/mail/postfix/docker-compose.prod.yml`.
+6. **Provider**: this repository, the branch from step 1. **Compose path**: `postfix/docker-compose.prod.yml`.
 7. Don't add a Dokploy **Domain** for `postfix` - SMTP doesn't go through
    Traefik. Leave "isolated deployment" off: the stack must be on
    `dokploy-network` to reach the website and its database.

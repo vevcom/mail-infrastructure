@@ -1,8 +1,8 @@
 name: release
 
-# Publishing a GitHub release builds the images of the services that have one and pushes them to
-# GHCR under the release tag, then opens a pull request on vivat that points its Applications for
-# this repo at the release. Merging that pull request is the deploy. See README.md.
+# Publishing a GitHub release builds the images this repo has and pushes them to GHCR under the
+# release tag, then opens a pull request on vivat that points its Application for this repo at
+# the release. Merging that pull request is the deploy. See README.md.
 on:
   release:
     types: [ published ]
@@ -19,8 +19,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - context: services/mail/postfix/containers/postfix
-            image: ghcr.io/vevcom/infra-postfix
+          - context: postfix/containers/postfix
+            image: ghcr.io/vevcom/mail-postfix
     steps:
     - name: checkout
       uses: actions/checkout@v4
@@ -64,7 +64,7 @@ jobs:
       env:
         RELEASE_TAG: ${{ github.event.release.tag_name }}
       run: |
-        files=$(grep -rl 'repoURL: https://github.com/vevcom/infra.git' clusters/prod || true)
+        files=$(grep -rl 'repoURL: https://github.com/vevcom/mail-infrastructure.git' clusters/prod || true)
         if [ -z "$files" ]; then
           echo "vivat runs nothing from this repo yet, so there is nothing to point at $RELEASE_TAG"
           exit 0
@@ -72,7 +72,7 @@ jobs:
         for file in $files; do
           sed -i -E \
             -e "s#^([[:space:]]*targetRevision: ).*#\1$RELEASE_TAG#" \
-            -e "s#(ghcr\.io/vevcom/infra-[a-z-]+:)[^[:space:]]+#\1$RELEASE_TAG#" \
+            -e "s#(ghcr\.io/vevcom/mail-[a-z-]+:)[^[:space:]]+#\1$RELEASE_TAG#" \
             "$file"
         done
         git diff
@@ -80,7 +80,7 @@ jobs:
     - uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ steps.token.outputs.token }}
-        branch: deploy/infra-${{ github.event.release.tag_name }}
-        commit-message: "deploy(infra): ${{ github.event.release.tag_name }} to prod"
-        title: "deploy(infra): ${{ github.event.release.tag_name }} to prod"
+        branch: deploy/mail-${{ github.event.release.tag_name }}
+        commit-message: "deploy(mail): ${{ github.event.release.tag_name }} to prod"
+        title: "deploy(mail): ${{ github.event.release.tag_name }} to prod"
         body: Merging this deploys ${{ github.event.release.html_url }} through Argo CD.

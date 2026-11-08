@@ -7,16 +7,11 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # Every dev half must at least be a valid compose file with every profile on.
-  dev-halves:
+  # The dev half must at least be a valid compose file.
+  dev:
     runs-on: ubuntu-latest
     steps:
     - name: checkout
       uses: actions/checkout@v4
     - name: compose config
-      run: |
-        for file in services/*/dev/compose.yaml; do
-          echo "::group::$file"
-          docker compose -f "$file" --profile '*' config --quiet
-          echo "::endgroup::"
-        done
+      run: docker compose -f dev/compose.yaml config --quiet
