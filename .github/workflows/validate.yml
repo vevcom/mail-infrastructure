@@ -7,7 +7,23 @@ on:
     branches: [ "main" ]
 
 jobs:
-  # The dev half must at least be a valid compose file.
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+    - name: install kubeconform
+      run: |
+        curl -sSL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz kubeconform
+    - name: validate
+      run: kustomize build deploy/base | ./kubeconform -strict -summary
+    # Every plan line must at least be JSON.
+    - name: plans
+      run: |
+        for plan in deploy/base/plan.ndjson dev/plan.ndjson; do
+          grep -v '^[[:space:]]*$' "$plan" | while read -r line; do echo "$line" | jq -e . >/dev/null || { echo "$plan: $line"; exit 1; }; done
+        done
+
   dev:
     runs-on: ubuntu-latest
     steps:

@@ -1,4 +1,8 @@
-# mail-infrastructure
+# mail-infrastructure, as it was
+
+> Retired. Production is moving to Stalwart on the cluster, see the README at the root of the
+> repo and vivat. This Postfix runs on Dokploy until the cluster receives the mail, then this
+> directory is deleted.
 
 Postfix mail server for the website's mail aliases (`<something>@<domain>`
 → the members behind it), plus monitoring. Deployed as a Dokploy compose app

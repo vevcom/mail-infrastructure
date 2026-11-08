@@ -1,8 +1,8 @@
 name: release
 
-# Publishing a GitHub release builds the images this repo has and pushes them to GHCR under the
-# release tag, then opens a pull request on vivat that points its Application for this repo at
-# the release. Merging that pull request is the deploy. See README.md.
+# Publishing a GitHub release opens a pull request on vivat that points its mail overlay at the
+# release. Merging that pull request is the deploy. Nothing is built: Stalwart and Bulwark run
+# from their own images, pinned in deploy/base. See README.md.
 on:
   release:
     types: [ published ]
@@ -11,36 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  images:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - context: postfix/containers/postfix
-            image: ghcr.io/vevcom/mail-postfix
-    steps:
-    - name: checkout
-      uses: actions/checkout@v4
-    - uses: docker/setup-buildx-action@v3
-    - uses: docker/login-action@v3
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-    - uses: docker/build-push-action@v6
-      with:
-        context: ${{ matrix.context }}
-        push: true
-        tags: ${{ matrix.image }}:${{ github.event.release.tag_name }}
-        cache-from: type=gha,scope=${{ matrix.image }}
-        cache-to: type=gha,mode=max,scope=${{ matrix.image }}
-
-  # A pre-release only publishes images, for trying by hand.
+  # A pre-release is for trying by hand, from a branch named in a local cluster.
   bump:
-    needs: images
     if: ${{ !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
@@ -64,19 +36,10 @@ jobs:
       env:
         RELEASE_TAG: ${{ github.event.release.tag_name }}
       run: |
-        files=$(grep -rl 'repoURL: https://github.com/vevcom/mail-infrastructure.git' clusters/prod || true)
-        if [ -z "$files" ]; then
-          echo "vivat runs nothing from this repo yet, so there is nothing to point at $RELEASE_TAG"
-          exit 0
-        fi
-        for file in $files; do
-          sed -i -E \
-            -e "s#^([[:space:]]*targetRevision: ).*#\1$RELEASE_TAG#" \
-            -e "s#(ghcr\.io/vevcom/mail-[a-z-]+:)[^[:space:]]+#\1$RELEASE_TAG#" \
-            "$file"
-        done
+        file=clusters/prod/mail/kustomization.yaml
+        sed -i -E "s#(github\.com/vevcom/mail-infrastructure//deploy/base\?ref=)[^[:space:]]+#\1$RELEASE_TAG#" "$file"
+        [ "$(grep -c "ref=$RELEASE_TAG" "$file")" = 1 ]
         git diff
-    # Does nothing when the step above changed nothing.
     - uses: peter-evans/create-pull-request@v7
       with:
         token: ${{ steps.token.outputs.token }}
