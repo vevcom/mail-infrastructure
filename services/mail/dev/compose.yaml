@@ -1,0 +1,65 @@
+# The mail server for development: Stalwart, set up from plan.ndjson on every start, with Mailpit
+# as its relay so no mail leaves the machine. An application's compose file includes this file,
+# see the README at the root of the repo. On its own, from this directory:
+#
+#     docker compose --profile mail up --wait
+#
+# Everything is under the `mail` profile, so nothing here starts unless asked for. See README.md
+# for the addresses, the credentials and how the application connects.
+
+services:
+    stalwart:
+        image: stalwartlabs/stalwart:v1.0.3
+        profiles: [mail]
+        init: true
+        environment:
+            # The credential the plan is applied with. Stalwart accepts it in every mode for as
+            # long as it is set, which is fine for development and why prod never sets it.
+            STALWART_RECOVERY_ADMIN: admin:omegaweb-dev-admin
+        ports:
+            - "127.0.0.1:8443:443"
+            - "127.0.0.1:1465:465"
+            - "127.0.0.1:1993:993"
+        volumes:
+            # Says only where the data is. With it present, Stalwart skips its setup wizard.
+            - ./config.json:/etc/stalwart/config.json:ro
+            - stalwart-data:/var/lib/stalwart
+
+    # Applies plan.ndjson over the plain HTTP listener inside the compose network. The plan
+    # converges, so a changed plan is applied by the next `up`.
+    stalwart-provision:
+        image: stalwartlabs/cli:1.0.14
+        profiles: [mail]
+        depends_on:
+            stalwart:
+                condition: service_healthy
+        environment:
+            STALWART_URL: http://stalwart:8080
+            STALWART_USER: admin
+            STALWART_PASSWORD: omegaweb-dev-admin
+        volumes:
+            - ./plan.ndjson:/work/plan.ndjson:ro
+        command: [apply, --file, /work/plan.ndjson]
+
+    # Most settings only take effect after a reload. The CLI image has no shell, so this is a
+    # second one-shot rather than a second command in the first.
+    stalwart-reload:
+        image: stalwartlabs/cli:1.0.14
+        profiles: [mail]
+        depends_on:
+            stalwart-provision:
+                condition: service_completed_successfully
+        environment:
+            STALWART_URL: http://stalwart:8080
+            STALWART_USER: admin
+            STALWART_PASSWORD: omegaweb-dev-admin
+        command: [create, Action/ReloadSettings, --json, "{}"]
+
+    mailpit:
+        image: axllent/mailpit:v1.33.1
+        profiles: [mail]
+        ports:
+            - "127.0.0.1:8025:8025"
+
+volumes:
+    stalwart-data:
