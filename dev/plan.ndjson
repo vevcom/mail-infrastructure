@@ -2,6 +2,6 @@
 {"@type":"update","object":"SystemSettings","value":{"defaultHostname":"mail.omegaweb.localhost","defaultDomainId":"#dom"}}
 {"@type":"upsert","object":"MtaRoute","matchOn":["name"],"value":{"mailpit":{"@type":"Relay","name":"mailpit","description":"Mail for any other domain goes to Mailpit, so nothing leaves the machine","host":"mailpit","port":1025,"implicitTls":false,"allowInvalidCerts":true}}}
 {"@type":"update","object":"MtaOutboundStrategy","value":{"route":{"match":{"0":{"if":"is_local_domain(rcpt_domain)","then":"'local'"}},"else":"'mailpit'"}}}
-{"@type":"upsert","object":"Account","matchOn":["name"],"value":{"dev":{"@type":"User","name":"dev","domainId":"#dom","description":"The mailbox the application sends from, and one to log in to a mail client with","credentials":{"0":{"@type":"Password","secret":"omegaweb-dev-mailbox"}},"roles":{"@type":"User"}}}}
-{"@type":"upsert","object":"MailingList","matchOn":["name"],"value":{"styret":{"name":"styret","domainId":"#dom","description":"An example alias: one local mailbox and one external address","recipients":{"dev@omegaweb.localhost":true,"someone@example.com":true}}}}
-{"@type":"upsert","object":"Tracer","matchOn":["@type"],"value":{"stdout":{"@type":"Stdout","enable":true,"level":"info","ansi":false,"multiline":false,"lossy":false,"buffered":false}}}
+{"@type":"update","object":"MtaStageAuth","value":{"mustMatchSender":{"match":{"0":{"if":"authenticated_as == 'dev@omegaweb.localhost'","then":"false"}},"else":"true"}}}
+{"@type":"upsert","object":"Account","matchOn":["name"],"value":{"postmaster":{"@type":"User","name":"postmaster","domainId":"#dom","description":"A mailbox to log in to the webmail or a mail client with, and where the reports go","credentials":{"0":{"@type":"Password","secret":"omegaweb-dev-mailbox"}},"roles":{"@type":"User"}}}}
+{"@type":"create","object":"Action","value":{"reload":{"@type":"ReloadSettings"}}}

@@ -1,6 +1,6 @@
-# The mail server for development: Stalwart, set up from plan.ndjson on every start, with Mailpit
-# as its relay so no mail leaves the machine. An application's compose file includes this file,
-# see the README at the root of the repo. On its own, from this directory:
+# The mail server for development: Stalwart, set up from the plans on every start, with Mailpit as
+# its relay so no mail leaves the machine, and the Bulwark webmail. An application's compose file
+# includes this file, see the README at the root of the repo. On its own, from this directory:
 #
 #     docker compose up -d
 #
@@ -12,21 +12,25 @@ services:
         image: stalwartlabs/stalwart:v1.0.3
         init: true
         environment:
-            # The credential the plan is applied with. Stalwart accepts it in every mode for as
-            # long as it is set, which is fine for development and why prod never sets it.
+            # The credential the plans are applied with. Stalwart accepts it for as long as it is
+            # set. Production sets it the same way, from its secret.
             STALWART_RECOVERY_ADMIN: admin:omegaweb-dev-admin
         ports:
+            # The plain HTTP listener, which the webmail in the browser uses for JMAP.
+            - "127.0.0.1:8080:8080"
             - "127.0.0.1:8443:443"
             - "127.0.0.1:1465:465"
             - "127.0.0.1:1993:993"
         volumes:
-            # Says only where the data is. With it present, Stalwart skips its setup wizard.
-            - ./config.json:/etc/stalwart/config.json:ro
+            # Says only where the data is. The same file as production's, so Stalwart skips its
+            # setup wizard here too.
+            - ../deploy/base/config.json:/etc/stalwart/config.json:ro
             - stalwart-data:/var/lib/stalwart
 
-    # Applies plan.ndjson over the plain HTTP listener inside the compose network. The plan
-    # converges, so a changed plan is applied by the next `up`.
-    stalwart-provision:
+    # Applies production's base plan first, then this directory's, over the plain HTTP listener
+    # inside the compose network. The plans converge, so a changed plan is applied by the next `up`.
+    # The CLI image has no shell, so each plan is a one-shot of its own.
+    stalwart-provision-base:
         image: stalwartlabs/cli:1.0.14
         depends_on:
             stalwart:
@@ -36,26 +40,39 @@ services:
             STALWART_USER: admin
             STALWART_PASSWORD: omegaweb-dev-admin
         volumes:
-            - ./plan.ndjson:/work/plan.ndjson:ro
+            - ../deploy/base/plan.ndjson:/work/plan.ndjson:ro
         command: [apply, --file, /work/plan.ndjson]
 
-    # Most settings only take effect after a reload. The CLI image has no shell, so this is a
-    # second one-shot rather than a second command in the first.
-    stalwart-reload:
+    stalwart-provision:
         image: stalwartlabs/cli:1.0.14
         depends_on:
-            stalwart-provision:
+            stalwart-provision-base:
                 condition: service_completed_successfully
         environment:
             STALWART_URL: http://stalwart:8080
             STALWART_USER: admin
             STALWART_PASSWORD: omegaweb-dev-admin
-        command: [create, Action/ReloadSettings, --json, "{}"]
+        volumes:
+            - ./plan.ndjson:/work/plan.ndjson:ro
+        command: [apply, --file, /work/plan.ndjson]
 
     mailpit:
         image: axllent/mailpit:v1.33.1
         ports:
             - "127.0.0.1:8025:8025"
 
+    # The webmail. The browser talks to Stalwart's JMAP api itself, at the published port above.
+    bulwark:
+        image: ghcr.io/bulwarkmail/webmail:1.19.1
+        environment:
+            HOSTNAME: 0.0.0.0
+            PORT: "3000"
+            JMAP_SERVER_URL: http://localhost:8080
+        ports:
+            - "127.0.0.1:8081:3000"
+        volumes:
+            - bulwark-data:/app/data
+
 volumes:
     stalwart-data:
+    bulwark-data:

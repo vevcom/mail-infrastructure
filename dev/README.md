@@ -1,34 +1,43 @@
 # Mail in development
 
-Stalwart, the mail server production is moving to, with [Mailpit](https://mailpit.axllent.org/) as
-its relay: every mail for a domain the server does not host ends up in Mailpit's inbox instead of
-leaving the machine. Stalwart is set up from `plan.ndjson` on every start, so the whole state is in
-this directory, and `docker compose down -v` resets it.
+Stalwart, the mail server production runs, with [Mailpit](https://mailpit.axllent.org/) as its
+relay and the [Bulwark](https://bulwarkmail.org/) webmail. Every mail for a domain the server does
+not host ends up in Mailpit's inbox instead of leaving the machine. Stalwart is set up from
+production's base plan and then `plan.ndjson` on every start, so the whole state is in git, and
+`docker compose down -v` resets it.
 
 | | Address | Credentials |
 |---|---|---|
+| Webmail | http://localhost:8081 | a mailbox below |
 | Stalwart admin | https://localhost:8443/admin | `admin` / `omegaweb-dev-admin` |
 | Mailpit | http://localhost:8025 | none |
-| IMAPS, for a mail client | `localhost:1993` | `dev@omegaweb.localhost` / `omegaweb-dev-mailbox` |
-| Submission | `localhost:1465`, implicit TLS | the same mailbox |
+| IMAPS, for a mail client | `localhost:1993` | a mailbox below |
+| Submission | `localhost:1465`, implicit TLS | a mailbox below |
 
-The certificates are self-signed, so a client has to be told to accept them.
+Mailboxes: `postmaster@omegaweb.localhost` with the password `omegaweb-dev-mailbox` comes from the
+plan. `dev@omegaweb.localhost` with the same password is the application's, which omegaweb-next
+creates when it syncs, see below. The certificates on 8443, 1465 and 1993 are self-signed, so a
+client has to be told to accept them; the webmail uses the plain listener on 8080.
 
-## What the plan sets up
+## What the plans set up
+
+The base plan, `../deploy/base/plan.ndjson`, is production's: logging to standard output, and the
+HTTP settings the webmail and a reverse proxy need. This directory's plan then sets up:
 
 - The domain `omegaweb.localhost`, and `mail.omegaweb.localhost` as the server's name.
-- The mailbox `dev@omegaweb.localhost`, which the application sends from and a mail client logs in with.
-- The list `styret@omegaweb.localhost`, with the mailbox and `someone@example.com` as members. A
-  mail to it shows both deliveries: one copy in the mailbox, one in Mailpit.
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
-- A tracer to standard output, so `docker compose logs stalwart` shows what the server does.
+- That the application's account may send as any address, since it sends as its aliases.
+- The `postmaster` mailbox.
+- A reload, so every setting takes effect.
 
 ## How an application connects
 
-Over the compose network, to `stalwart` on port 465 with implicit TLS, authenticating as the
-mailbox. Stalwart only accepts the account's own addresses as sender, so the application sends from
-`dev@omegaweb.localhost`. omegaweb-next's `.env.default` holds these values: setting
-`EMAIL_SERVER=stalwart` there is all it takes.
+Over the compose network, to `stalwart` on port 465 with implicit TLS, authenticating as its
+account, and to the management api at `http://stalwart:8080` as `admin`. omegaweb-next's
+`.env.default` holds these values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it
+takes. It then creates its account and a mailing list per alias, with the alias's members as
+recipients, so a mail to an alias shows one delivery per member: in Mailpit for an external
+address, in a mailbox here for a local one.
 
 ## Changing it
 
@@ -40,12 +49,10 @@ The `stalwart-provision` service is the CLI, so any other command runs through i
 
 ```bash
 docker compose run --rm stalwart-provision describe Domain
-docker compose run --rm stalwart-provision query Account
+docker compose run --rm stalwart-provision query MailingList
 ```
 
 ## The domain
 
-Stalwart refuses single-label names such as `localhost`, which is the mail domain omegaweb-next
-derives from `sites.example.json`. Sending is unaffected, since the application sends from the
-mailbox. Once omegaweb-next manages lists and accounts here, its development mail domain has to
-become `omegaweb.localhost`, or another name with a dot that the plan hosts.
+Stalwart refuses single-label names such as `localhost`, so omegaweb-next's development domain is
+`omegaweb.localhost`, which browsers resolve to the machine itself.
