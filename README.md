@@ -8,7 +8,7 @@ on the cluster, and in the shape a developer runs next to omegaweb-next.
 ```
 deploy/base/   # Stalwart and Bulwark for Kubernetes: the generic shape, which vivat's overlay fills in
 dev/           # The same server for development, with Mailpit as its relay, as a compose file
-postfix/       # What ran before: Postfix on Dokploy. Deleted once the cluster receives the mail
+postfix/       # Postfix on Dokploy, which receives the mail until the cluster does. Deleted then
 ```
 
 Nothing here names a domain, a certificate or a password. Those belong to whoever runs an
