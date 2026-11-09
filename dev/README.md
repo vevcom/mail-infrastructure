@@ -8,16 +8,22 @@ production's base plan and then `plan.ndjson` on every start, so the whole state
 
 | | Address | Credentials |
 |---|---|---|
-| Webmail | http://localhost:8081 | a mailbox below |
+| Webmail | http://mail.omegaweb.localhost:8081 | your omegaweb-next account, see below |
 | Stalwart admin | https://localhost:8443/admin | `admin` / `omegaweb-dev-admin` |
 | Mailpit | http://localhost:8025 | none |
-| IMAPS, for a mail client | `localhost:1993` | a mailbox below |
-| Submission | `localhost:1465`, implicit TLS | a mailbox below |
+| IMAPS, for a mail client | `localhost:1993` | an app password, see below |
+| Submission | `localhost:1465`, implicit TLS | an app password, see below |
 
-Mailboxes: `postmaster@omegaweb.localhost` with the password `omegaweb-dev-mailbox` comes from the
-plan. `dev@omegaweb.localhost` with the same password is the application's, which omegaweb-next
-creates when it syncs, see below. The certificates on 8443, 1465 and 1993 are self-signed, so a
-client has to be told to accept them; the webmail uses the plain listener on 8080.
+Signing in goes through omegaweb-next, which is an OpenID Connect provider on
+`http://auth.localhost:3000` when it runs with the `sites.json` of its example: the webmail sends
+you there, and you come back signed in as `<username>@mail.omegaweb.localhost`, seeing the
+mailboxes of the aliases you receive mail on. Stalwart reaches that address through
+`auth.localhost`, which the compose file points at the machine. Passwords are refused everywhere
+once the directory is active, see the root README, so a mail client takes an app password, made in
+the webmail. `postmaster@omegaweb.localhost` is where the server's reports go and has no login;
+`dev@omegaweb.localhost` is the application's account, which omegaweb-next creates when it syncs,
+see below. The certificates on 8443, 1465 and 1993 are self-signed, so a client has to be told to
+accept them; the webmail uses the plain listener on 8080.
 
 ## What the plans set up
 
@@ -28,6 +34,11 @@ HTTP settings the webmail and a reverse proxy need. This directory's plan then s
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
 - That the application's account may send as any address, since it sends as its aliases.
 - The `postmaster` mailbox.
+- The domain `mail.omegaweb.localhost`, the webmail's host, where the aliases' mailboxes and the
+  accounts of those who sign in live. omegaweb-next creates it too; here it is ready before the
+  first sign in.
+- The directory that signs users in through omegaweb-next at `http://auth.localhost:3000`, and that
+  authentication uses it. The same lines as production's, with the development values.
 - A reload, so every setting takes effect.
 
 ## How an application connects
@@ -37,7 +48,8 @@ account, and to the management api at `http://stalwart:8080` as `admin`. omegawe
 `.env.default` holds these values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it
 takes. It then creates its account and a mailing list per alias, with the alias's members as
 recipients, so a mail to an alias shows one delivery per member: in Mailpit for an external
-address, in a mailbox here for a local one.
+address, in a mailbox here for a local one, and in the alias's own mailbox, a group on
+`mail.omegaweb.localhost` the list delivers to, when `EMAIL_WEBMAIL_URL` names the webmail above.
 
 ## Changing it
 

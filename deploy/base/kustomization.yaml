@@ -30,7 +30,16 @@ configMapGenerator:
       literals:
           - STALWART_URL=http://stalwart:8080
           - STALWART_USER=admin
-    # The address browsers reach Stalwart's JMAP api at, which the overlay sets.
+    # The address browsers reach Stalwart's JMAP api at, and the application's OpenID Connect
+    # provider the webmail signs its users in through, which the overlay sets, see README.md. The
+    # client id is the webmail's own host. The provider issues no refresh tokens, so there is
+    # nothing to revoke on sign out.
     - name: bulwark-config
       literals:
           - JMAP_SERVER_URL=https://stalwart.placeholder.invalid
+          - OAUTH_ENABLED=true
+          - OAUTH_ONLY=true
+          - AUTO_SSO_ENABLED=true
+          - OAUTH_REVOKE_ON_SIGN_OUT=false
+          - OAUTH_ISSUER_URL=https://login.placeholder.invalid
+          - OAUTH_CLIENT_ID=webmail.placeholder.invalid

@@ -15,6 +15,10 @@ services:
             # The credential the plans are applied with. Stalwart accepts it for as long as it is
             # set. Production sets it the same way, from its secret.
             STALWART_RECOVERY_ADMIN: admin:omegaweb-dev-admin
+        # The provider the directory in plan.ndjson names is the application, published on the
+        # machine's port 3000, see README.md.
+        extra_hosts:
+            - auth.localhost:host-gateway
         ports:
             # The plain HTTP listener, which the webmail in the browser uses for JMAP.
             - "127.0.0.1:8080:8080"
@@ -61,14 +65,25 @@ services:
         ports:
             - "127.0.0.1:8025:8025"
 
-    # The webmail. The browser talks to Stalwart's JMAP api itself, at the published port above.
+    # The webmail. The browser talks to Stalwart's JMAP api itself, at the published port above,
+    # and signs in through the application's provider, as production's does: the same settings as
+    # deploy/base's bulwark-config, with the development issuer and the webmail's own host.
     bulwark:
         image: ghcr.io/bulwarkmail/webmail:1.19.1
         environment:
             HOSTNAME: 0.0.0.0
             PORT: "3000"
             JMAP_SERVER_URL: http://localhost:8080
+            OAUTH_ENABLED: "true"
+            OAUTH_ONLY: "true"
+            AUTO_SSO_ENABLED: "true"
+            OAUTH_REVOKE_ON_SIGN_OUT: "false"
+            OAUTH_ISSUER_URL: http://auth.localhost:3000
+            OAUTH_CLIENT_ID: mail.omegaweb.localhost
+        extra_hosts:
+            - auth.localhost:host-gateway
         ports:
+            # Opened as http://mail.omegaweb.localhost:8081, the origin the provider knows it by.
             - "127.0.0.1:8081:3000"
         volumes:
             - bulwark-data:/app/data

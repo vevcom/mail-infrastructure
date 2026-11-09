@@ -1,6 +1,7 @@
 # The webmail. Browsers talk to Stalwart's JMAP api directly, at the address in bulwark-config,
-# so Stalwart allows every origin (see plan.ndjson). Its state, the session secret among it, is on
-# the volume, so a restart keeps everyone signed in.
+# so Stalwart allows every origin (see plan.ndjson), and sign in through the application's OpenID
+# Connect provider named there, see README.md. Its state, the session secret among it, is on the
+# volume, so a restart keeps everyone signed in.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
