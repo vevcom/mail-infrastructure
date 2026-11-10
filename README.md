@@ -81,6 +81,27 @@ exception, which Stalwart checks itself before asking the directory, and the rec
 its own. `acceptedAudiences` is a set, so it is written as an object with the host as key: Stalwart
 refuses a list there, and with it the whole directory.
 
+## What someone signed in sends as
+
+Stalwart lets someone signed in send as the addresses that are theirs: their own, and those of the
+mailboxes they are a member of. It checks the envelope sender alone, so a member of a mailbox
+could still write any address in the From header. The base plan closes that with the system script
+`from-header`, which the DATA stage runs on every mail from someone signed in: it refuses a mail
+whose From header is not the address the mail is sent as. So a member answers as the mailbox they
+answer from and as no one else. What the application sends is not signed in and is left alone.
+
+The mailboxes forward to lists on `forward.<webmail host>`, and a list takes mail from anyone. The
+copies a mailbox sends on never pass the RCPT stage, so nothing else has to reach those lists. The
+base plan holds the script `refuse-recipient`, which refuses the recipient it is run for, and the
+overlay's plan runs it for that domain when the sender is not signed in:
+
+```
+{"@type":"update","object":"MtaStageRcpt","value":{"script":{"match":{"0":{"if":"is_empty(authenticated_as) && rcpt_domain == 'forward.<webmail host>'","then":"'refuse-recipient'"}},"else":"false"}}}
+```
+
+A script is only run when it is active, `isActive` true, which it is not unless the plan says so.
+Both rules take effect on the reload that ends the overlay's plan, with no restart.
+
 ## How the application sends
 
 The application sends as its aliases, to anyone, and it is not a person the directory could sign

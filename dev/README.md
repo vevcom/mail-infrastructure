@@ -27,8 +27,9 @@ accept them; the webmail uses the plain listener on 8080.
 ## What the plans set up
 
 The base plan, `../deploy/base/plan.ndjson`, is production's: logging to standard output, the
-HTTP settings the webmail and a reverse proxy need, and the listener the application sends
-through. This directory's plan then sets up:
+HTTP settings the webmail and a reverse proxy need, the listener the application sends through,
+and the rule that someone signed in sends as their own addresses alone. This directory's plan
+then sets up:
 
 - The domain `omegaweb.localhost`, and `mail.omegaweb.localhost` as the server's name.
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
@@ -37,6 +38,8 @@ through. This directory's plan then sets up:
   in live. omegaweb-next creates it too; here it is ready before the first sign in.
 - The directory that signs users in through omegaweb-next at `http://auth.localhost:3000`, and that
   authentication uses it. The same lines as production's, with the development values.
+- The rule that refuses mail from outside for `forward.mail.omegaweb.localhost`, the domain of the
+  lists the mailboxes forward to, see the root README.
 - A reload, so every setting takes effect.
 
 ## How an application connects
