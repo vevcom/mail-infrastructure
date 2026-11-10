@@ -1,0 +1,56 @@
+# Applies the plans in stalwart-plan on every sync, once Stalwart answers, and reloads its
+# settings. The plans converge, so applying them again changes nothing. The overlay appends an
+# init container for its own plan, which runs after the base one.
+apiVersion: batch/v1
+kind: Job
+metadata:
+    name: stalwart-provision
+    annotations:
+        argocd.argoproj.io/hook: Sync
+        argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+        argocd.argoproj.io/sync-wave: "1"
+spec:
+    backoffLimit: 3
+    template:
+        metadata:
+            labels:
+                app.kubernetes.io/name: stalwart-provision
+        spec:
+            restartPolicy: Never
+            volumes:
+                - name: plan
+                  configMap:
+                      name: stalwart-plan
+            initContainers:
+                - name: wait
+                  image: busybox:1.37
+                  command: [sh, -c, until wget -qO- http://stalwart:8080/healthz/ready >/dev/null 2>&1; do sleep 2; done]
+                - name: apply-base
+                  image: stalwartlabs/cli:1.0.14
+                  args: [apply, --file, /plan/10-base.ndjson]
+                  envFrom:
+                      - configMapRef:
+                            name: stalwart-cli
+                  env:
+                      - name: STALWART_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: mail-env
+                                key: STALWART_ADMIN_PASSWORD
+                  volumeMounts:
+                      - name: plan
+                        mountPath: /plan
+                        readOnly: true
+            containers:
+                - name: reload
+                  image: stalwartlabs/cli:1.0.14
+                  args: [create, Action/ReloadSettings, --json, "{}"]
+                  envFrom:
+                      - configMapRef:
+                            name: stalwart-cli
+                  env:
+                      - name: STALWART_PASSWORD
+                        valueFrom:
+                            secretKeyRef:
+                                name: mail-env
+                                key: STALWART_ADMIN_PASSWORD

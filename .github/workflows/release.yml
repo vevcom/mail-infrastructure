@@ -1,0 +1,49 @@
+name: release
+
+# Publishing a GitHub release opens a pull request on vivat that points its mail overlay at the
+# release. Merging that pull request is the deploy. Nothing is built: Stalwart and Bulwark run
+# from their own images, pinned in deploy/base. See README.md.
+on:
+  release:
+    types: [ published ]
+
+permissions:
+  contents: read
+
+jobs:
+  # A pre-release is for trying by hand, from a branch named in a local cluster.
+  bump:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+    # The default token cannot write to another repo, and GitHub starts no workflows for a pull
+    # request made with it, so the checks vivat requires would never report. The deploy app is
+    # the one omegaweb-next's release workflow uses, installed on vivat.
+    - uses: actions/create-github-app-token@v2
+      id: token
+      with:
+        app-id: ${{ vars.DEPLOY_APP_ID }}
+        private-key: ${{ secrets.DEPLOY_APP_PRIVATE_KEY }}
+        owner: vevcom
+        repositories: vivat
+    - name: checkout vivat
+      uses: actions/checkout@v4
+      with:
+        repository: vevcom/vivat
+        token: ${{ steps.token.outputs.token }}
+        persist-credentials: false
+    - name: point prod at the release
+      env:
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+      run: |
+        file=clusters/prod/mail/kustomization.yaml
+        sed -i -E "s#(github\.com/vevcom/mail-infrastructure//deploy/base\?ref=)[^[:space:]]+#\1$RELEASE_TAG#" "$file"
+        [ "$(grep -c "ref=$RELEASE_TAG" "$file")" = 1 ]
+        git diff
+    - uses: peter-evans/create-pull-request@v7
+      with:
+        token: ${{ steps.token.outputs.token }}
+        branch: deploy/mail-${{ github.event.release.tag_name }}
+        commit-message: "deploy(mail): ${{ github.event.release.tag_name }} to prod"
+        title: "deploy(mail): ${{ github.event.release.tag_name }} to prod"
+        body: Merging this deploys ${{ github.event.release.html_url }} through Argo CD.

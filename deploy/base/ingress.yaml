@@ -1,0 +1,35 @@
+# The hosts are set per overlay. Stalwart's host serves the management api, the admin ui under
+# /admin and JMAP, which the webmail's browsers use; the webmail has a host of its own.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: stalwart
+spec:
+    rules:
+        - host: stalwart.placeholder.invalid
+          http:
+              paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: stalwart
+                            port:
+                                name: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: bulwark
+spec:
+    rules:
+        - host: webmail.placeholder.invalid
+          http:
+              paths:
+                  - path: /
+                    pathType: Prefix
+                    backend:
+                        service:
+                            name: bulwark
+                            port:
+                                name: http

@@ -1,0 +1,97 @@
+# The mail server for development: Stalwart, set up from the plans on every start, with Mailpit as
+# its relay so no mail leaves the machine, and the Bulwark webmail. An application's compose file
+# includes this file, see the README at the root of the repo. On its own, from this directory:
+#
+#     docker compose up -d
+#
+# Not with --wait: Compose 2.24 counts the one-shots below as failures once they have exited.
+# See README.md for the addresses, the credentials and how the application connects.
+
+services:
+    stalwart:
+        image: stalwartlabs/stalwart:v1.0.3
+        init: true
+        environment:
+            # The credential the plans are applied with. Stalwart accepts it for as long as it is
+            # set. Production sets it the same way, from its secret.
+            STALWART_RECOVERY_ADMIN: admin:omegaweb-dev-admin
+        # The provider the directory in plan.ndjson names is the application, published on the
+        # machine's port 3000, see README.md.
+        extra_hosts:
+            - auth.localhost:host-gateway
+        ports:
+            # The plain HTTP listener, which the webmail in the browser uses for JMAP.
+            - "127.0.0.1:8080:8080"
+            - "127.0.0.1:8443:443"
+            - "127.0.0.1:1465:465"
+            - "127.0.0.1:1993:993"
+        volumes:
+            # Says only where the data is. The same file as production's, so Stalwart skips its
+            # setup wizard here too.
+            - ../deploy/base/config.json:/etc/stalwart/config.json:ro
+            - stalwart-data:/var/lib/stalwart
+
+    # Applies production's base plan first, then this directory's, over the plain HTTP listener
+    # inside the compose network. The plans converge, so a changed plan is applied by the next `up`.
+    # The CLI image has no shell, so each plan is a one-shot of its own.
+    stalwart-provision-base:
+        image: stalwartlabs/cli:1.0.14
+        depends_on:
+            stalwart:
+                condition: service_healthy
+        environment:
+            STALWART_URL: http://stalwart:8080
+            STALWART_USER: admin
+            STALWART_PASSWORD: omegaweb-dev-admin
+        volumes:
+            - ../deploy/base/plan.ndjson:/work/plan.ndjson:ro
+        command: [apply, --file, /work/plan.ndjson]
+
+    stalwart-provision:
+        image: stalwartlabs/cli:1.0.14
+        depends_on:
+            stalwart-provision-base:
+                condition: service_completed_successfully
+        environment:
+            STALWART_URL: http://stalwart:8080
+            STALWART_USER: admin
+            STALWART_PASSWORD: omegaweb-dev-admin
+        volumes:
+            - ./plan.ndjson:/work/plan.ndjson:ro
+        command: [apply, --file, /work/plan.ndjson]
+
+    mailpit:
+        image: axllent/mailpit:v1.33.1
+        ports:
+            - "127.0.0.1:8025:8025"
+
+    # The webmail. The browser talks to Stalwart's JMAP api itself, at the published port above,
+    # and signs in through the application's provider, as production's does: the same settings as
+    # deploy/base's bulwark-config, with the development issuer and the webmail's own host.
+    bulwark:
+        image: ghcr.io/bulwarkmail/webmail:1.19.1
+        environment:
+            HOSTNAME: 0.0.0.0
+            PORT: "3000"
+            JMAP_SERVER_URL: http://localhost:8080
+            OAUTH_ENABLED: "true"
+            OAUTH_ONLY: "true"
+            AUTO_SSO_ENABLED: "true"
+            OAUTH_REVOKE_ON_SIGN_OUT: "false"
+            OAUTH_ISSUER_URL: http://auth.localhost:3000
+            OAUTH_CLIENT_ID: mail.omegaweb.localhost
+            # The webmail lets the browser connect to itself and to https hosts alone. With this it
+            # lists the hosts it is set up with, so the browser may reach Stalwart and the issuer
+            # here, which are plain http in development.
+            NO_THIRD_PARTY_TRAFFIC: "true"
+        extra_hosts:
+            - auth.localhost:host-gateway
+        ports:
+            # Opened as http://mail.omegaweb.localhost:8081, the origin the provider knows it by.
+            - "127.0.0.1:8081:3000"
+        volumes:
+            - bulwark-data:/app/data
+
+volumes:
+    stalwart-data:
+    bulwark-data:
