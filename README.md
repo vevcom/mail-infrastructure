@@ -116,7 +116,7 @@ it, `application` on port 2525, and four rules that go by that port:
 What reaches that port may send as any address, so who reaches it is the whole of its security.
 It is SMTP with STARTTLS on the `stalwart` service inside the cluster, and never on
 `stalwart-public`. The certificate is for the server's public name and not the service's, so the
-application encrypts without verifying it. An
+application is told that name to verify it by, `EMAIL_TLS_SERVERNAME` in omegaweb-next. An
 overlay has to keep everything but the application away from it, with a NetworkPolicy; ours is in
 vivat. In development it is only on the compose network.
 
