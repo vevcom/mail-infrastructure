@@ -33,9 +33,8 @@ through. This directory's plan then sets up:
 - The domain `omegaweb.localhost`, and `mail.omegaweb.localhost` as the server's name.
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
 - The `postmaster` mailbox.
-- The domain `mail.omegaweb.localhost`, the webmail's host, where the aliases' mailboxes and the
-  accounts of those who sign in live. omegaweb-next creates it too; here it is ready before the
-  first sign in.
+- The domain `mail.omegaweb.localhost`, the webmail's host, where the accounts of those who sign
+  in live. omegaweb-next creates it too; here it is ready before the first sign in.
 - The directory that signs users in through omegaweb-next at `http://auth.localhost:3000`, and that
   authentication uses it. The same lines as production's, with the development values.
 - A reload, so every setting takes effect.
@@ -46,10 +45,11 @@ Over the compose network, to `stalwart` on port 2525 for sending, SMTP with STAR
 to the management api at `http://stalwart:8080` as `admin`. The base plan sets that listener up,
 see the root README. Stalwart only opens it when it starts, so after the first `up` on a fresh
 volume, run `docker compose restart stalwart` once. omegaweb-next's `.env.default` holds these
-values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it takes. It then creates a
-mailing list per alias, with the alias's members as recipients, so a mail to an alias shows one delivery per member: in Mailpit for an external
-address, in a mailbox here for a local one, and in the alias's own mailbox, a group on
-`mail.omegaweb.localhost` the list delivers to, when `EMAIL_WEBMAIL_URL` names the webmail above.
+values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it takes. With
+`EMAIL_WEBMAIL_URL` naming the webmail above, it then keeps a mailbox per alias, a group at the
+alias's own address, and a list of the alias's members the mailbox forwards a copy to. So a mail
+to an alias shows in the alias's mailbox in the webmail, and one delivery per member: in Mailpit
+for an external address, in a mailbox here for a local one.
 
 ## Changing it
 

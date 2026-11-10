@@ -41,12 +41,14 @@ Stalwart does not read the alias tables the way Postfix did. omegaweb-next talks
 api instead, as the admin: it creates a mailing list per alias with the members as recipients. It
 has no account of its own.
 
-Every alias also keeps its mail in a mailbox, unless its owners switch that off: a group account
-on the webmail's host as a domain, which the alias's list delivers to besides forwarding, and which
-the people who receive the alias's mail see as a shared folder in the webmail. The application
-creates and removes those groups. Who is a member of which it never writes to the server: it is in
-the `groups` claim of the token a user signs in to the webmail with, and Stalwart makes the user a
-member of exactly those groups at every sign in.
+With a webmail, every alias keeps its mail in a mailbox: a group account at the alias's own
+address, which the people who receive the alias's mail see as a shared folder in the webmail, under
+the alias's name, and answer as. An address is a mailbox or a mailing list on the server, not both,
+so the alias is then no list: its mailbox runs a script that keeps the mail and sends a copy to a
+list of the alias's members on `forward.<webmail host>`, a domain the application makes for those
+lists and which needs no DNS. The application creates and removes the groups, the lists and the
+scripts, and it writes who is a member of which mailbox: every minute it makes the account of each
+person who has signed in a member of the mailboxes of the aliases they receive, and of no other.
 
 ## How users sign in
 
@@ -55,20 +57,23 @@ its config marks as the auth domain. The overlay's plan defines the directory an
 authentication uses, with the issuer and the webmail's host filled in:
 
 ```
-{"@type":"upsert","object":"Directory","matchOn":["description"],"value":{"omegaweb":{"@type":"Oidc","description":"omegaweb-next signs users in","issuerUrl":"https://<auth host>","claimUsername":"preferred_username","usernameDomain":"<webmail host>","claimName":"name","claimGroups":"groups","acceptedAudiences":{"<webmail host>":true}}}}
+{"@type":"upsert","object":"Directory","matchOn":["description"],"value":{"omegaweb":{"@type":"Oidc","description":"omegaweb-next signs users in","issuerUrl":"https://<auth host>","claimUsername":"preferred_username","usernameDomain":"<webmail host>","claimName":"name","claimGroups":null,"acceptedAudiences":{"<webmail host>":true}}}}
 {"@type":"update","object":"Authentication","value":{"directoryId":"#omegaweb"}}
 ```
 
-The claims are the contract with the application: `preferred_username` is the account, `groups`
-the mailboxes it may open, and the webmail's host is the client the application issues tokens to,
-the audience it names and the domain the mailboxes and the accounts are on, so the one host goes
-in `usernameDomain`, `acceptedAudiences`, `OAUTH_CLIENT_ID` and the application's
-`EMAIL_WEBMAIL_URL` alike. `OAUTH_ISSUER_URL` in `bulwark-config` is the same issuer. The
-webmail asks the provider for the mail scope on its own, since the provider lists it.
+The token only says who signed in: `preferred_username` is the account. No claim names groups,
+and `claimGroups` is null so that Stalwart reads none: with one it rewrites a user's memberships
+from the token at every sign in, and the memberships are the application's to keep. The webmail's
+host is the client the application issues tokens to, the audience it names and the domain the
+accounts are on, so the one host goes in `usernameDomain`, `acceptedAudiences`, `OAUTH_CLIENT_ID`
+and the application's `EMAIL_WEBMAIL_URL` alike. `OAUTH_ISSUER_URL` in `bulwark-config` is the
+same issuer. The webmail asks the provider for the mail scope on its own, since the provider
+lists it, and Stalwart refuses a token without that scope.
 
-An account is made the first time someone signs in. The mailbox domain has to exist by then: the
-application creates it with the mailboxes, so a server where the application has not synced yet
-turns the first sign in away.
+An account is made the first time someone signs in. The domain of the accounts has to exist by
+then: the application creates it, so a server where the application has not synced yet turns the
+first sign in away. A new account sees its mailboxes once the application has synced again, within
+the minute.
 
 Once the directory is active, Stalwart hands every login to it, and it only takes the provider's
 tokens: a mail client or the webmail signing in with a password is refused. App passwords are the
