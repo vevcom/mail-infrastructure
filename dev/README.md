@@ -16,9 +16,12 @@ production's base plan and then `plan.ndjson` on every start, so the whole state
 
 Signing in goes through omegaweb-next, which is an OpenID Connect provider on
 `http://auth.localhost:3000` when it runs with the `sites.json` of its example: the webmail sends
-you there, and you come back signed in as `<username>@mail.omegaweb.localhost`, seeing the
-mailboxes of the aliases you receive mail on. Stalwart reaches that address through
-`auth.localhost`, which the compose file points at the machine. Passwords are refused everywhere
+you there, and you come back signed in to your own mailbox, at the address you have in
+omegaweb-next, `<username>@omegaweb.localhost` until a user admin moves it, seeing the mailboxes of
+the aliases you receive mail on beside it. Stalwart signs you in by the name
+`<username>@mail.omegaweb.localhost`, which omegaweb-next keeps as an alias of your account, see the
+root README. Stalwart reaches the provider through `auth.localhost`, which the compose file points
+at the machine. Passwords are refused everywhere
 once the directory is active, see the root README, so a mail client takes an app password, made in
 the webmail. `postmaster@omegaweb.localhost` is where the server's reports go and has no login.
 The application has no account: it sends through a listener of its own, see below. The certificates on 8443, 1465 and 1993 are self-signed, so a client has to be told to
@@ -34,8 +37,8 @@ then sets up:
 - The domain `omegaweb.localhost`, and `mail.omegaweb.localhost` as the server's name.
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
 - The `postmaster` mailbox.
-- The domain `mail.omegaweb.localhost`, the webmail's host, where the accounts of those who sign
-  in live. omegaweb-next creates it too; here it is ready before the first sign in.
+- The domain `mail.omegaweb.localhost`, the webmail's host, which the names users are signed in by
+  are on. omegaweb-next creates it too; here it is ready before the first sign in.
 - The directory that signs users in through omegaweb-next at `http://auth.localhost:3000`, and that
   authentication uses it. The same lines as production's, with the development values.
 - The rule that refuses mail from outside for `forward.mail.omegaweb.localhost`, the domain of the
@@ -52,7 +55,10 @@ values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it takes. With
 `EMAIL_WEBMAIL_URL` naming the webmail above, it then keeps a mailbox per alias, a group at the
 alias's own address, and a list of the alias's members the mailbox forwards a copy to. So a mail
 to an alias shows in the alias's mailbox in the webmail, and one delivery per member: in Mailpit
-for an external address, in a mailbox here for a local one.
+for an external address, in a mailbox here for a local one. It keeps a mailbox per user too, the
+account they sign in to, at their own address: a mail to `<username>@omegaweb.localhost` shows in
+that user's mailbox, and a copy to their private email in Mailpit while their address forwards,
+which they set on their mail page in omegaweb-next.
 
 ## Changing it
 
