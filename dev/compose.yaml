@@ -80,6 +80,10 @@ services:
             OAUTH_REVOKE_ON_SIGN_OUT: "false"
             OAUTH_ISSUER_URL: http://auth.localhost:3000
             OAUTH_CLIENT_ID: mail.omegaweb.localhost
+            # The webmail lets the browser connect to itself and to https hosts alone. With this it
+            # lists the hosts it is set up with, so the browser may reach Stalwart and the issuer
+            # here, which are plain http in development.
+            NO_THIRD_PARTY_TRAFFIC: "true"
         extra_hosts:
             - auth.localhost:host-gateway
         ports:
