@@ -24,7 +24,9 @@ omega.ntnu.no and says there how the move from Postfix goes.
   whose users sign in through the application's OpenID Connect provider, see
   [How users sign in](#how-users-sign-in).
 - **The provision job**, which applies the plans in `stalwart-plan` on every sync and reloads the
-  settings. `plan.ndjson` here is the base plan: logging to standard output and the HTTP settings.
+  settings. `plan.ndjson` here is the base plan: logging to standard output, the HTTP settings and
+  the listener the application sends its mail through, see
+  [How the application sends](#how-the-application-sends).
   The overlay merges its own plan in as `20-site.ndjson` with the domain, the hostname, the relay
   and the certificate, and appends an init container to the job that applies it.
 - **A weekly certificate reload**, for a certificate the overlay has cert-manager write to the
@@ -36,9 +38,8 @@ A plan is NDJSON for `stalwart-cli apply`: every line an `upsert` keyed on the o
 ## What the application does
 
 Stalwart does not read the alias tables the way Postfix did. omegaweb-next talks to the management
-api instead, as the admin: it creates a mailing list per alias with the members as recipients, and
-its own account, which it sends mail through. The overlay's plan lets that account send as any
-address, since the application sends as its aliases.
+api instead, as the admin: it creates a mailing list per alias with the members as recipients. It
+has no account of its own.
 
 Every alias also keeps its mail in a mailbox, unless its owners switch that off: a group account
 on the webmail's host as a domain, which the alias's list delivers to besides forwarding, and which
@@ -69,11 +70,34 @@ An account is made the first time someone signs in. The mailbox domain has to ex
 application creates it with the mailboxes, so a server where the application has not synced yet
 turns the first sign in away.
 
-Once the directory is active, Stalwart sends every password login to it, and the provider has no
-passwords: a mail client or the webmail signing in with a password is refused. App passwords are
-the exception, which Stalwart checks itself before asking the directory, and the recovery admin
-keeps its own. The application's sending account is affected like any other: how it authenticates
-is the application's business, see its README, and a plain password no longer does.
+Once the directory is active, Stalwart hands every login to it, and it only takes the provider's
+tokens: a mail client or the webmail signing in with a password is refused. App passwords are the
+exception, which Stalwart checks itself before asking the directory, and the recovery admin keeps
+its own. `acceptedAudiences` is a set, so it is written as an object with the host as key: Stalwart
+refuses a list there, and with it the whole directory.
+
+## How the application sends
+
+The application sends as its aliases, to anyone, and it is not a person the directory could sign
+in. So it has no account and no password. The base plan gives Stalwart a listener of its own for
+it, `application` on port 2525, and four rules that go by that port:
+
+- no login is asked for there,
+- mail for any domain is relayed from there,
+- mail from a domain the server hosts is DKIM signed there, as it is for someone signed in,
+- and the spam filter, which is for mail coming in, leaves it alone.
+
+What reaches that port may send as any address, so who reaches it is the whole of its security.
+It is SMTP with STARTTLS on the `stalwart` service inside the cluster, and never on
+`stalwart-public`. The certificate is for the server's public name and not the service's, so the
+application encrypts without verifying it. An
+overlay has to keep everything but the application away from it, with a NetworkPolicy; ours is in
+vivat. In development it is only on the compose network.
+
+Stalwart opens a listener when it starts, not when its settings are reloaded. The first time the
+base plan is applied to a server, the listener exists but nothing answers on 2525 until Stalwart
+has been restarted once: `kubectl rollout restart statefulset/stalwart` in the overlay's
+namespace, or `docker compose restart stalwart` in development.
 
 ## How it is consumed
 

@@ -41,6 +41,8 @@ spec:
                         containerPort: 25
                       - name: submissions
                         containerPort: 465
+                      - name: application
+                        containerPort: 2525
                       - name: imaps
                         containerPort: 993
                       - name: http
@@ -88,7 +90,8 @@ spec:
                       storage: 10Gi
 ---
 # Inside the cluster: the management api and the webmail's JMAP go through here, and an
-# application submits its mail on 465.
+# application hands over its mail on 2525, the listener that asks for no login. That port is
+# on this service alone, never on the public one, and the overlay says who may reach it.
 apiVersion: v1
 kind: Service
 metadata:
@@ -100,6 +103,9 @@ spec:
         - name: http
           port: 8080
           targetPort: http
+        - name: application
+          port: 2525
+          targetPort: application
         - name: submissions
           port: 465
           targetPort: submissions

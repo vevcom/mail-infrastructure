@@ -20,19 +20,18 @@ you there, and you come back signed in as `<username>@mail.omegaweb.localhost`, 
 mailboxes of the aliases you receive mail on. Stalwart reaches that address through
 `auth.localhost`, which the compose file points at the machine. Passwords are refused everywhere
 once the directory is active, see the root README, so a mail client takes an app password, made in
-the webmail. `postmaster@omegaweb.localhost` is where the server's reports go and has no login;
-`dev@omegaweb.localhost` is the application's account, which omegaweb-next creates when it syncs,
-see below. The certificates on 8443, 1465 and 1993 are self-signed, so a client has to be told to
+the webmail. `postmaster@omegaweb.localhost` is where the server's reports go and has no login.
+The application has no account: it sends through a listener of its own, see below. The certificates on 8443, 1465 and 1993 are self-signed, so a client has to be told to
 accept them; the webmail uses the plain listener on 8080.
 
 ## What the plans set up
 
-The base plan, `../deploy/base/plan.ndjson`, is production's: logging to standard output, and the
-HTTP settings the webmail and a reverse proxy need. This directory's plan then sets up:
+The base plan, `../deploy/base/plan.ndjson`, is production's: logging to standard output, the
+HTTP settings the webmail and a reverse proxy need, and the listener the application sends
+through. This directory's plan then sets up:
 
 - The domain `omegaweb.localhost`, and `mail.omegaweb.localhost` as the server's name.
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
-- That the application's account may send as any address, since it sends as its aliases.
 - The `postmaster` mailbox.
 - The domain `mail.omegaweb.localhost`, the webmail's host, where the aliases' mailboxes and the
   accounts of those who sign in live. omegaweb-next creates it too; here it is ready before the
@@ -43,11 +42,12 @@ HTTP settings the webmail and a reverse proxy need. This directory's plan then s
 
 ## How an application connects
 
-Over the compose network, to `stalwart` on port 465 with implicit TLS, authenticating as its
-account, and to the management api at `http://stalwart:8080` as `admin`. omegaweb-next's
-`.env.default` holds these values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it
-takes. It then creates its account and a mailing list per alias, with the alias's members as
-recipients, so a mail to an alias shows one delivery per member: in Mailpit for an external
+Over the compose network, to `stalwart` on port 2525 for sending, SMTP with STARTTLS and no login, and
+to the management api at `http://stalwart:8080` as `admin`. The base plan sets that listener up,
+see the root README. Stalwart only opens it when it starts, so after the first `up` on a fresh
+volume, run `docker compose restart stalwart` once. omegaweb-next's `.env.default` holds these
+values: setting `EMAIL_SERVER` and `EMAIL_ADMIN_URL` there is all it takes. It then creates a
+mailing list per alias, with the alias's members as recipients, so a mail to an alias shows one delivery per member: in Mailpit for an external
 address, in a mailbox here for a local one, and in the alias's own mailbox, a group on
 `mail.omegaweb.localhost` the list delivers to, when `EMAIL_WEBMAIL_URL` names the webmail above.
 
