@@ -54,7 +54,7 @@ its config marks as the auth domain. The overlay's plan defines the directory an
 authentication uses, with the issuer and the webmail's host filled in:
 
 ```
-{"@type":"upsert","object":"Directory","matchOn":["description"],"value":{"omegaweb":{"@type":"Oidc","description":"omegaweb-next signs users in","issuerUrl":"https://<auth host>","claimUsername":"preferred_username","usernameDomain":"<webmail host>","claimName":"name","claimGroups":"groups","acceptedAudiences":["<webmail host>"]}}}
+{"@type":"upsert","object":"Directory","matchOn":["description"],"value":{"omegaweb":{"@type":"Oidc","description":"omegaweb-next signs users in","issuerUrl":"https://<auth host>","claimUsername":"preferred_username","usernameDomain":"<webmail host>","claimName":"name","claimGroups":"groups","acceptedAudiences":{"<webmail host>":true}}}}
 {"@type":"update","object":"Authentication","value":{"directoryId":"#omegaweb"}}
 ```
 

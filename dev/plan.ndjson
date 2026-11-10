@@ -5,6 +5,6 @@
 {"@type":"update","object":"MtaStageAuth","value":{"mustMatchSender":{"match":{"0":{"if":"authenticated_as == 'dev@omegaweb.localhost'","then":"false"}},"else":"true"}}}
 {"@type":"upsert","object":"Account","matchOn":["name"],"value":{"postmaster":{"@type":"User","name":"postmaster","domainId":"#dom","description":"Where the server's reports go. No one signs in to it, see README.md","roles":{"@type":"User"}}}}
 {"@type":"upsert","object":"Domain","matchOn":["name"],"value":{"mailboxes":{"name":"mail.omegaweb.localhost","description":"The webmail's host: the domain of the aliases' mailboxes and of the accounts that sign in through omegaweb-next"}}}
-{"@type":"upsert","object":"Directory","matchOn":["description"],"value":{"omegaweb":{"@type":"Oidc","description":"omegaweb-next signs users in","issuerUrl":"http://auth.localhost:3000","claimUsername":"preferred_username","usernameDomain":"mail.omegaweb.localhost","claimName":"name","claimGroups":"groups","acceptedAudiences":["mail.omegaweb.localhost"]}}}
+{"@type":"upsert","object":"Directory","matchOn":["description"],"value":{"omegaweb":{"@type":"Oidc","description":"omegaweb-next signs users in","issuerUrl":"http://auth.localhost:3000","claimUsername":"preferred_username","usernameDomain":"mail.omegaweb.localhost","claimName":"name","claimGroups":"groups","acceptedAudiences":{"mail.omegaweb.localhost":true}}}}
 {"@type":"update","object":"Authentication","value":{"directoryId":"#omegaweb"}}
 {"@type":"create","object":"Action","value":{"reload":{"@type":"ReloadSettings"}}}
