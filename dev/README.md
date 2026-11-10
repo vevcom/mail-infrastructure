@@ -32,10 +32,13 @@ and the rule that someone signed in sends as their own addresses alone. This dir
 then sets up:
 
 - The domain `omegaweb.localhost`, and `mail.omegaweb.localhost` as the server's name.
+- The domains `career.localhost` and `revue.localhost`, the mail domains of the other sites in
+  omegaweb-next's `sites.example.json`. The application creates no domain, so a site added to a
+  local `sites.json` needs a line here for its aliases to work.
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
 - The `postmaster` mailbox.
 - The domain `mail.omegaweb.localhost`, the webmail's host, where the accounts of those who sign
-  in live. omegaweb-next creates it too; here it is ready before the first sign in.
+  in live, and `forward.mail.omegaweb.localhost`, where the lists the mailboxes forward to live.
 - The directory that signs users in through omegaweb-next at `http://auth.localhost:3000`, and that
   authentication uses it. The same lines as production's, with the development values.
 - The rule that refuses mail from outside for `forward.mail.omegaweb.localhost`, the domain of the

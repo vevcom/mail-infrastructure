@@ -45,10 +45,25 @@ With a webmail, every alias keeps its mail in a mailbox: a group account at the 
 address, which the people who receive the alias's mail see as a shared folder in the webmail, under
 the alias's name, and answer as. An address is a mailbox or a mailing list on the server, not both,
 so the alias is then no list: its mailbox runs a script that keeps the mail and sends a copy to a
-list of the alias's members on `forward.<webmail host>`, a domain the application makes for those
-lists and which needs no DNS. The application creates and removes the groups, the lists and the
+list of the alias's members on `forward.<webmail host>`, a domain for those lists alone, which
+needs no DNS. The application creates and removes the groups, the lists and the
 scripts, and it writes who is a member of which mailbox: every minute it makes the account of each
 person who has signed in a member of the mailboxes of the aliases they receive, and of no other.
+
+## Whose the domains are
+
+The application creates no domain. The overlay's plan holds every one the server needs, as
+upserts: each mail domain of the application's sites, the webmail's host for the accounts, and
+`forward.<webmail host>` for the lists the mailboxes forward to.
+
+```
+{"@type":"upsert","object":"Domain","matchOn":["name"],"value":{"site":{"name":"<a site's mail domain>","description":"..."}}}
+```
+
+The application looks the domains up by name. It skips the aliases on a site domain the server
+lacks and says so in its log every minute, and it leaves every alias alone while the webmail's
+domain or the forwarding domain is missing. So a new site with mail is a line in the plan, next to
+the site's entry in the application's `sites.json`.
 
 ## How users sign in
 
@@ -70,9 +85,8 @@ and the application's `EMAIL_WEBMAIL_URL` alike. `OAUTH_ISSUER_URL` in `bulwark-
 same issuer. The webmail asks the provider for the mail scope on its own, since the provider
 lists it, and Stalwart refuses a token without that scope.
 
-An account is made the first time someone signs in. The domain of the accounts has to exist by
-then: the application creates it, so a server where the application has not synced yet turns the
-first sign in away. A new account sees its mailboxes once the application has synced again, within
+An account is made the first time someone signs in, on the domain of the accounts, which the
+overlay's plan holds. A new account sees its mailboxes once the application has synced again, within
 the minute.
 
 Once the directory is active, Stalwart hands every login to it, and it only takes the provider's
