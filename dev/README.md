@@ -38,7 +38,8 @@ then sets up:
 - A relay route to Mailpit, and the outbound strategy that sends everything not local through it.
 - The `postmaster` mailbox.
 - The domain `mail.omegaweb.localhost`, the webmail's host, which the names users are signed in by
-  are on. omegaweb-next creates it too; here it is ready before the first sign in.
+  are on, and `forward.mail.omegaweb.localhost`, where the lists the mailboxes forward to live.
+  omegaweb-next creates neither, and creates the mail domains of its sites itself.
 - The directory that signs users in through omegaweb-next at `http://auth.localhost:3000`, and that
   authentication uses it. The same lines as production's, with the development values.
 - The rule that refuses mail from outside for `forward.mail.omegaweb.localhost`, the domain of the

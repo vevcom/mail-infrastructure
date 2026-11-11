@@ -52,7 +52,7 @@ changes, so the mail stays.
 An address is a mailbox or a mailing list on the server, not both, so a mailbox sends the mail on
 itself, with a script that keeps the mail and sends a copy on. A user's mailbox sends it to their
 private email. An alias's sends it to a list of the alias's members on `forward.<webmail host>`, a
-domain the application makes for those lists and which needs no DNS. Whether an address forwards is
+domain for those lists alone, which needs no DNS. Whether an address forwards is
 set in the application, by the user for their own address and by the owners for an alias: with it
 off the mailbox only keeps the mail, and a user's runs no script of the application's, so one of
 their own may run. While it is on, the application's script is the one that runs.
@@ -62,6 +62,21 @@ writes who is a member of which mailbox: every minute it makes the account of ea
 the mailboxes of the aliases they receive, and of no other. The account of a user who is deleted in
 the application is destroyed, with its mail. The account of an archived user is left where it is,
 and sends nothing on.
+
+## Whose the domains are
+
+The application creates the mail domains of its sites, which its `sites.json` lists, so a new site
+with mail needs no line in a plan. The two domains the mailboxes take are not a site's, and the
+application creates neither. They are the overlay's plan's, as upserts next to the server's own
+domain: the webmail's host, for the names users are signed in by, and `forward.<webmail host>`, for
+the lists the mailboxes forward to.
+
+```
+{"@type":"upsert","object":"Domain","matchOn":["name"],"value":{"forward":{"name":"forward.<webmail host>","description":"..."}}}
+```
+
+The application looks those two up by name. While the server lacks one it leaves every address as
+it was, and says so in its log every minute.
 
 ## How users sign in
 
@@ -91,10 +106,9 @@ since the provider lists it, and Stalwart refuses a token without that scope.
 
 The application makes a user's account ahead of their first sign in. Someone who signs in before
 it has, a user created within the last minute, is given an account by Stalwart at their sign in
-name, which the application then moves to their address. The domain of the sign in names has to
-exist by then: the application creates it, so a server where the application has not synced yet
-turns the first sign in away. A new account sees its mailboxes once the application has synced
-again, within the minute.
+name, which the application then moves to their address. The domain of the sign in names is in the
+overlay's plan, so it is there by then. A new account sees its mailboxes once the application has
+synced again, within the minute.
 
 Once the directory is active, Stalwart hands every login to it, and it only takes the provider's
 tokens: a mail client or the webmail signing in with a password is refused. App passwords are the
