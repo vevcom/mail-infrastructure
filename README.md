@@ -1,9 +1,9 @@
 # mail-infrastructure
 
-Mail for Sct. Omega Broderskab: [Stalwart](https://stalw.art), which receives mail for the aliases
-omegaweb-next manages and forwards it to the members behind them, and the
-[Bulwark](https://bulwarkmail.org) webmail for reading the mailboxes on it. In the shape that runs
-on the cluster, and in the shape a developer runs next to omegaweb-next.
+Mail for Sct. Omega Broderskab: [Stalwart](https://stalw.art), which receives mail for the addresses
+omegaweb-next manages, those of its aliases and of its users, and forwards it to the people behind
+them, and the [Bulwark](https://bulwarkmail.org) webmail for reading the mailboxes on it. In the
+shape that runs on the cluster, and in the shape a developer runs next to omegaweb-next.
 
 ```
 deploy/base/   # Stalwart and Bulwark for Kubernetes: the generic shape, which vivat's overlay fills in
@@ -36,17 +36,47 @@ A plan is NDJSON for `stalwart-cli apply`: every line an `upsert` keyed on the o
 
 ## What the application does
 
-omegaweb-next talks to Stalwart's management api, as the admin: it creates a mailing list per
-alias with the members as recipients. It has no account of its own.
+omegaweb-next talks to Stalwart's management api, as the admin, and puts every address it has
+there: those of its aliases, and the one each user has, which is their username on Omega's main
+domain until a user admin moves it. Without a webmail every address is a mailing list: an alias's
+with the members as recipients, and a user's with their private email. The application has no
+account of its own.
 
-With a webmail, every alias keeps its mail in a mailbox: a group account at the alias's own
-address, which the people who receive the alias's mail see as a shared folder in the webmail, under
-the alias's name, and answer as. An address is a mailbox or a mailing list on the server, not both,
-so the alias is then no list: its mailbox runs a script that keeps the mail and sends a copy to a
-list of the alias's members on `forward.<webmail host>`, a domain the application makes for those
-lists and which needs no DNS. The application creates and removes the groups, the lists and the
-scripts, and it writes who is a member of which mailbox: every minute it makes the account of each
-person who has signed in a member of the mailboxes of the aliases they receive, and of no other.
+With a webmail, every address keeps its mail in a mailbox. An alias's is a group account at the
+alias's own address, which the people who receive the alias's mail see as a shared folder in the
+webmail, under the alias's name, and answer as. A user's is the account they sign in to, at their
+own address, see [How users sign in](#how-users-sign-in). The application makes it ahead of their
+first sign in, so mail to the address has somewhere to arrive, and moves it when the address
+changes, so the mail stays.
+
+An address is a mailbox or a mailing list on the server, not both, so a mailbox sends the mail on
+itself, with a script that keeps the mail and sends a copy on. A user's mailbox sends it to their
+private email. An alias's sends it to a list of the alias's members on `forward.<webmail host>`, a
+domain for those lists alone, which needs no DNS. Whether an address forwards is
+set in the application, by the user for their own address and by the owners for an alias: with it
+off the mailbox only keeps the mail, and a user's runs no script of the application's, so one of
+their own may run. While it is on, the application's script is the one that runs.
+
+The application creates and removes the accounts, the groups, the lists and the scripts, and it
+writes who is a member of which mailbox: every minute it makes the account of each user a member of
+the mailboxes of the aliases they receive, and of no other. The account of a user who is deleted in
+the application is destroyed, with its mail. The account of an archived user is left where it is,
+and sends nothing on.
+
+## Whose the domains are
+
+The application creates the mail domains of its sites, which its `sites.json` lists, so a new site
+with mail needs no line in a plan. The two domains the mailboxes take are not a site's, and the
+application creates neither. They are the overlay's plan's, as upserts next to the server's own
+domain: the webmail's host, for the names users are signed in by, and `forward.<webmail host>`, for
+the lists the mailboxes forward to.
+
+```
+{"@type":"upsert","object":"Domain","matchOn":["name"],"value":{"forward":{"name":"forward.<webmail host>","description":"..."}}}
+```
+
+The application looks those two up by name. While the server lacks one it leaves every address as
+it was, and says so in its log every minute.
 
 ## How users sign in
 
@@ -59,19 +89,26 @@ authentication uses, with the issuer and the webmail's host filled in:
 {"@type":"update","object":"Authentication","value":{"directoryId":"#omegaweb"}}
 ```
 
-The token only says who signed in: `preferred_username` is the account. No claim names groups,
-and `claimGroups` is null so that Stalwart reads none: with one it rewrites a user's memberships
-from the token at every sign in, and the memberships are the application's to keep. The webmail's
-host is the client the application issues tokens to, the audience it names and the domain the
-accounts are on, so the one host goes in `usernameDomain`, `acceptedAudiences`, `OAUTH_CLIENT_ID`
-and the application's `EMAIL_WEBMAIL_URL` alike. `OAUTH_ISSUER_URL` in `bulwark-config` is the
-same issuer. The webmail asks the provider for the mail scope on its own, since the provider
-lists it, and Stalwart refuses a token without that scope.
+The token only says who signed in. Stalwart builds the name it signs them in by from
+`preferred_username` and `usernameDomain`, such as `kari@<webmail host>`, and signs them in to the
+account that has that address, as its own or as an alias. That is how a user's account can be at
+the address they have in the application: the application keeps the sign in name as an alias of
+the account, and the address itself is the application's to move. So the sign in name is never an
+address anyone writes to, and the webmail's host needs no MX record.
 
-An account is made the first time someone signs in. The domain of the accounts has to exist by
-then: the application creates it, so a server where the application has not synced yet turns the
-first sign in away. A new account sees its mailboxes once the application has synced again, within
-the minute.
+No claim names groups, and `claimGroups` is null so that Stalwart reads none: with one it rewrites
+a user's memberships from the token at every sign in, and the memberships are the application's to
+keep. The webmail's host is the client the application issues tokens to, the audience it names and
+the domain of the sign in names, so the one host goes in `usernameDomain`, `acceptedAudiences`,
+`OAUTH_CLIENT_ID` and the application's `EMAIL_WEBMAIL_URL` alike. `OAUTH_ISSUER_URL` in
+`bulwark-config` is the same issuer. The webmail asks the provider for the mail scope on its own,
+since the provider lists it, and Stalwart refuses a token without that scope.
+
+The application makes a user's account ahead of their first sign in. Someone who signs in before
+it has, a user created within the last minute, is given an account by Stalwart at their sign in
+name, which the application then moves to their address. The domain of the sign in names is in the
+overlay's plan, so it is there by then. A new account sees its mailboxes once the application has
+synced again, within the minute.
 
 Once the directory is active, Stalwart hands every login to it, and it only takes the provider's
 tokens: a mail client or the webmail signing in with a password is refused. App passwords are the
