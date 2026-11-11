@@ -8,12 +8,11 @@ on the cluster, and in the shape a developer runs next to omegaweb-next.
 ```
 deploy/base/   # Stalwart and Bulwark for Kubernetes: the generic shape, which vivat's overlay fills in
 dev/           # The same server for development, with Mailpit as its relay, as a compose file
-postfix/       # Postfix on Dokploy, which receives the mail until the cluster does. Deleted then
 ```
 
 Nothing here names a domain, a certificate or a password. Those belong to whoever runs an
 installation; ours is [vivat](https://github.com/vevcom/vivat), which deploys `deploy/base` for
-omega.ntnu.no and says there how the move from Postfix goes.
+omega.ntnu.no.
 
 ## What deploy/base is
 
@@ -37,9 +36,8 @@ A plan is NDJSON for `stalwart-cli apply`: every line an `upsert` keyed on the o
 
 ## What the application does
 
-Stalwart does not read the alias tables the way Postfix did. omegaweb-next talks to the management
-api instead, as the admin: it creates a mailing list per alias with the members as recipients. It
-has no account of its own.
+omegaweb-next talks to Stalwart's management api, as the admin: it creates a mailing list per
+alias with the members as recipients. It has no account of its own.
 
 With a webmail, every alias keeps its mail in a mailbox: a group account at the alias's own
 address, which the people who receive the alias's mail see as a shared folder in the webmail, under
